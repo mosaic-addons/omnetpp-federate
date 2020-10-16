@@ -1,0 +1,43 @@
+# IDE Stuffs
+## eclipse
+.classpath
+.project
+.settings
+.cproject
+.nedexclusions
+.nedfolders
+## netbeans
+nb-configuration.xml
+nbactions*.xml
+## intellij files
+*.iml
+.idea
+.editorconfig
+
+out/
+obj/
+bin
+Makefile
+
+simulations/run
+
+src/Makefile
+src/makefrag
+src/omnetpp_federate/msg/MosaicAppPacket_m.cc
+src/omnetpp_federate/msg/MosaicAppPacket_m.h
+src/omnetpp_federate/msg/MosaicCommunicationCmd_m.cc
+src/omnetpp_federate/msg/MosaicCommunicationCmd_m.h
+src/omnetpp_federate/msg/MosaicConfigurationCmd_m.cc
+src/omnetpp_federate/msg/MosaicConfigurationCmd_m.h
+src/omnetpp_federate/msg/MosaicMobilityCmd_m.cc
+src/omnetpp_federate/msg/MosaicMobilityCmd_m.h
+src/omnetpp_federate/util/ClientServerChannelMessages.pb.cc
+src/omnetpp_federate/util/ClientServerChannelMessages.pb.h
+
+src/results
+src/.cmdenv-log
+src/omnetpp-federate
+src/omnetpp-federate_dbg
+omnetpp-federate-BINARY.make
+omnetpp-federate-LIBRARY.make
+
