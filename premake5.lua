@@ -10,8 +10,6 @@ local autoconf = require 'autoconf'
 local tools = require 'tools'
 local PROTO_PATH    = "."
 local PROTO_CC_PATH = "."
---local PROTO_PATH = "../omnetpp-ambassador/target/maven-shared-archive-resources/proto"
---local PROTO_CC_PATH = "../omnetpp-ambassador/target/maven-shared-archive-resources/cpp"
 
 autoconfigure {
     ['config.h'] = function (cfg)
