@@ -1,9 +1,10 @@
 /*
  * Copyright (c) 2021 Fraunhofer FOKUS and others. All rights reserved.
+ * Copyright (c) 2006,2007 INRIA
  *
  * Contact: mosaic@fokus.fraunhofer.de
  *
- * This class is developed for the MOSAIC-NS-3 coupling.
+ * This code is developed for the MOSAIC-OMNeT++ coupling.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
