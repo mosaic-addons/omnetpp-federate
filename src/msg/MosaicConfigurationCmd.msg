@@ -48,7 +48,7 @@ class MosaicConfigurationCmd extends inet::Request {
     bool turnedOn0;
     inet::Ipv4Address ip0;
     inet::Ipv4Address subnet0;
-    int power0;
+    double power0;
     int numchannels0;
     int channel00;
     int	channel01;
@@ -57,7 +57,7 @@ class MosaicConfigurationCmd extends inet::Request {
     bool turnedOn1;
     inet::Ipv4Address ip1;
     inet::Ipv4Address subnet1;
-    int power1;
+    double power1;
     int	numchannels1;
     int channel10;
     int	channel11;
