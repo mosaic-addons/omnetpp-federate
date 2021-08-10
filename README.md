@@ -2,6 +2,8 @@ These build instructions relate to the source code version of ```MOSAIC```. To b
 the binary version of ```MOSAIC``` follow the manual that guides you to the installation using ```omnet_installer.sh``` from 
 the MOSAIC distribution. When using the installer all dependencies but ```omnetpp```, ```inet``` and ```premake``` itself have to be manually resolved too.
 
+See [MOSAIC's website](https://www.eclipse.org/mosaic/docs/simulators/network_simulator_omnetpp/) for additional and detailed instructions.
+
 # Dependencies
 
 The omnetpp-federate has the following dependencies:
