@@ -21,7 +21,7 @@
  *
  */
  
- #include "Ns3Log.h"
+ #include "Log.h"
 
 bool is_ns_log_enabled(int level) {
   if (g_log_level & level)

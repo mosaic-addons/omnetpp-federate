@@ -37,7 +37,7 @@
 #include <iomanip>
 #include <poll.h>
 
-#include "Ns3Log.h"
+#include "Log.h"
 
 NS_LOG_COMPONENT_DEFINE("ClientServerChannel");
 
