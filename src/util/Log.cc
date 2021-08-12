@@ -23,15 +23,13 @@
  
  #include "Log.h"
 
-bool is_ns_log_enabled(int level) {
+bool is_LOG_enabled(int level) {
   if (g_log_level & level)
     return true;
   else
     return false;
 }
 
-
-namespace ns3 {
 
 // copied from ns-3.34, file: core/log.cc
 ParameterLogger::ParameterLogger (std::ostream &os)
@@ -64,6 +62,3 @@ ParameterLogger::operator<< <const char *> (const char * param)
   (*this) << std::string (param);
   return *this;
 }
-
-
-}  // namespace ns3

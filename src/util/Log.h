@@ -35,8 +35,6 @@
 #endif
 
 
-namespace ns3 {
-
 // enum copied from ns-3.34, file: core/log.h
 /**
  *  Logging severity classes and levels.
@@ -128,70 +126,68 @@ ParameterLogger::operator<< (const T param)
   return *this;
 }
 
-}  // namespace ns3
 
-
-// define log level with default value or use defined preprocessor symbol NS_LOG_LEVEL
-#ifdef NS_LOG_LEVEL
-static int g_log_level = NS_LOG_LEVEL;
+// define log level with default value or use defined preprocessor symbol LOG_LEVEL
+#ifdef LOG_LEVEL
+static int g_log_level = LOG_LEVEL;
 #else
-static int g_log_level = ns3::LOG_LEVEL_WARN;
+static int g_log_level = LOG_LEVEL_WARN;
 #endif
 
-bool is_ns_log_enabled (int level);
+bool is_LOG_enabled (int level);
 
 // define simplified LOG makros (compare to official ns3 logging macros)
 
-#define NS_LOG_CONDITION
+#define LOG_CONDITION
 
-#define NS_LOG_COMPONENT_DEFINE(name)  \
-  static std::string g_ns_log_component_name = name;
+#define LOG_COMPONENT_DEFINE(name)  \
+  static std::string g_LOG_component_name = name;
 
 // simplified prefix
-#define NS_LOG_APPEND_PREFIX \
-  LOG_OUT << g_ns_log_component_name << ": ";
+#define LOG_APPEND_PREFIX \
+  LOG_OUT << g_LOG_component_name << ": ";
 
 // copied from ns-3.34, file: core/log.h
-#define NS_LOG_ERROR(msg) \
-  NS_LOG (ns3::LOG_ERROR, msg)
+#define LOG_ERROR(msg) \
+  NS_LOG (LOG_ERROR, msg)
 
 // copied from ns-3.34, file: core/log.h
-#define NS_LOG_WARN(msg) \
-  NS_LOG (ns3::LOG_WARN, msg)
+#define LOG_WARN(msg) \
+  NS_LOG (LOG_WARN, msg)
 
 // copied from ns-3.34, file: core/log.h
-#define NS_LOG_DEBUG(msg) \
-  NS_LOG (ns3::LOG_DEBUG, msg)
+#define LOG_DEBUG(msg) \
+  NS_LOG (LOG_DEBUG, msg)
 
 // copied from ns-3.34, file: core/log.h
-#define NS_LOG_INFO(msg) \
-  NS_LOG (ns3::LOG_INFO, msg)
+#define LOG_INFO(msg) \
+  NS_LOG (LOG_INFO, msg)
 
 // copied from ns-3.34, file: core/log.h
-#define NS_LOG_LOGIC(msg) \
-  NS_LOG (ns3::LOG_LOGIC, msg)
+#define LOG_LOGIC(msg) \
+  NS_LOG (LOG_LOGIC, msg)
 
 // derived from ns-3.34, file: core/log.h
 #define NS_LOG(level, msg)                                      \
-  NS_LOG_CONDITION                                              \
+  LOG_CONDITION                                                 \
   do {                                                          \
-      if (is_ns_log_enabled (level))                            \
+      if (is_LOG_enabled (level))                               \
         {                                                       \
-          NS_LOG_APPEND_PREFIX;                                 \
+          LOG_APPEND_PREFIX;                                    \
           LOG_OUT << msg << std::endl;                          \
         }                                                       \
     } while (false)
 
 // derived from ns-3.34, file: core/log.h
-#define NS_LOG_FUNCTION(parameters)                             \
-  NS_LOG_CONDITION                                              \
+#define LOG_FUNCTION(parameters)                                \
+  LOG_CONDITION                                                 \
   do                                                            \
     {                                                           \
-      if (is_ns_log_enabled (ns3::LOG_FUNCTION))                \
+      if (is_LOG_enabled (LOG_FUNCTION))                        \
         {                                                       \
-          NS_LOG_APPEND_PREFIX;                                 \
+          LOG_APPEND_PREFIX;                                    \
           LOG_OUT << __FUNCTION__ << "(";                       \
-          ns3::ParameterLogger (LOG_OUT) << parameters;         \
+          ParameterLogger (LOG_OUT) << parameters;              \
           LOG_OUT << ")" << std::endl;                          \
         }                                                       \
     }                                                           \
