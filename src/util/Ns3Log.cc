@@ -24,7 +24,7 @@
  #include "Ns3Log.h"
 
 bool is_ns_log_enabled(int level) {
-  if (g_log_level || level)
+  if (g_log_level & level)
     return true;
   else
     return false;
