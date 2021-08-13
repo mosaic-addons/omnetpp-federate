@@ -10,14 +10,15 @@ The subsequent instructions therefore adresses advanced users who want to alter 
 
 The omnetpp-federate has the following dependencies:
 
-* `dev-libs/protobuf`, `dev-libs/protobuf[test]? ( dev-cpp/gtest )`
-* `net-misc/inet`
-* `net-misc/omnetpp`
+* `protobuf`
+* `gtest`
+* `inet` (tested with version `4.1`)
+* `omnetpp` (tested with version `5.5`)
 
 Building omnetpp-federate requires further dependencies:
 
-* `dev-util/premake` 
-* `dev-util/premake-autoconf`
+* `premake` 
+* `premake-autoconf`
 
 The source code and binary tar balls for Windows, Linux and Mac OS X of ```premake``` are available at https://premake.github.io/download.html.
 When you choose the binary version then the tar ball extracts just one single binary called ```premake5``` for direct use. Please keep in mind that ```premake``` is
