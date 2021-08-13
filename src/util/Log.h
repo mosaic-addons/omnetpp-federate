@@ -134,6 +134,8 @@ static int g_log_level = LOG_LEVEL;
 static int g_log_level = LOG_LEVEL_WARN;
 #endif
 
+void set_log_level_to_omnetpp_level ();
+
 bool is_LOG_enabled (int level);
 
 // define simplified LOG makros (compare to official ns3 logging macros)

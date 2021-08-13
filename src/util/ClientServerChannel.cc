@@ -119,6 +119,7 @@ std::string uint32_to_ip ( const unsigned int ip ) {
 ClientServerChannel::ClientServerChannel() {
   servsock = INVALID_SOCKET;
   sock = INVALID_SOCKET;
+  set_log_level_to_omnetpp_level();
 }
 
 /**

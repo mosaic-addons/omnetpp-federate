@@ -22,6 +22,35 @@
  */
  
  #include "Log.h"
+ #include <omnetpp/clog.h>
+
+
+void set_log_level_to_omnetpp_level () {
+  // map OMNeT++ log level to LogLevel
+  switch (omnetpp::cLog::logLevel) {
+    case omnetpp::LOGLEVEL_TRACE:
+      g_log_level = LOG_LEVEL_LOGIC;
+      break;
+    case omnetpp::LOGLEVEL_DEBUG:
+      g_log_level = LOG_LEVEL_FUNCTION;
+      break;
+    case omnetpp::LOGLEVEL_DETAIL:
+      g_log_level = LOG_LEVEL_INFO;
+      break;
+    case omnetpp::LOGLEVEL_INFO:
+      g_log_level = LOG_LEVEL_DEBUG;
+      break;
+    case omnetpp::LOGLEVEL_WARN:
+      g_log_level = LOG_LEVEL_WARN;
+      break;
+    case omnetpp::LOGLEVEL_ERROR:
+    case omnetpp::LOGLEVEL_FATAL:
+      g_log_level = LOG_LEVEL_ERROR;
+      break;
+    case omnetpp::LOGLEVEL_OFF:
+      g_log_level = LOG_NONE;
+  }
+}
 
 bool is_LOG_enabled(int level) {
   if (g_log_level & level)
