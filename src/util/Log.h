@@ -29,6 +29,8 @@
 #include <sstream>
 #include <vector>
 
+ #include <omnetpp/clog.h>
+
 // default log stream
 #ifndef LOG_OUT
 #define LOG_OUT std::clog
@@ -134,7 +136,7 @@ static int g_log_level = LOG_LEVEL;
 static int g_log_level = LOG_LEVEL_WARN;
 #endif
 
-void set_log_level_to_omnetpp_level ();
+void set_log_level (omnetpp::LogLevel omnetpp_level);
 
 bool is_LOG_enabled (int level);
 

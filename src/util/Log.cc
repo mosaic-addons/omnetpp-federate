@@ -25,9 +25,9 @@
  #include <omnetpp/clog.h>
 
 
-void set_log_level_to_omnetpp_level () {
+void set_log_level(omnetpp::LogLevel omnetpp_level) {
   // map OMNeT++ log level to LogLevel
-  switch (omnetpp::cLog::logLevel) {
+  switch (omnetpp_level) {
     case omnetpp::LOGLEVEL_TRACE:
       g_log_level = LOG_LEVEL_LOGIC;
       break;

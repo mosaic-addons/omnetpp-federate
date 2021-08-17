@@ -38,8 +38,13 @@
 #include <poll.h>
 
 #include "Log.h"
+#include <omnetpp.h>
 
 LOG_COMPONENT_DEFINE("ClientServerChannel");
+
+Register_GlobalConfigOption(CFGID_CLIENTSERVERCHANNEL_LOG_LEVEL, "clientserverchannel-log-level",
+        CFG_CUSTOM, "warn", "Log level of ClientServerChannel.");
+
 
 namespace std {
   ostream& operator<< ( ostream& out, ClientServerChannelSpace::CMD cmd ) {
@@ -119,7 +124,9 @@ std::string uint32_to_ip ( const unsigned int ip ) {
 ClientServerChannel::ClientServerChannel() {
   servsock = INVALID_SOCKET;
   sock = INVALID_SOCKET;
-  set_log_level_to_omnetpp_level();
+  omnetpp::LogLevel level = omnetpp::cLog::resolveLogLevel(
+    omnetpp::cSimulation::getActiveEnvir()->getConfig()->getAsCustom(CFGID_CLIENTSERVERCHANNEL_LOG_LEVEL));
+  set_log_level(level);
 }
 
 /**
