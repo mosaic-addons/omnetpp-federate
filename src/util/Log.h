@@ -33,7 +33,7 @@
 
 // default log stream
 #ifndef LOG_OUT
-#define LOG_OUT std::clog
+#define LOG_OUT std::cout
 #endif
 
 
