@@ -149,8 +149,6 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort, const 
  * triggered from MosaicScenarioManager and hence from Mosaic.
  */
 void MosaicProxyApp::sendPacket(omnetpp::cMessage *msg) {
-    EV << "MosaicUDP send packet" << std::endl;
-
     auto *packet = inet::check_and_cast<MosaicAppPacket *>(msg);
     auto destAddr = packet->getDestAddr();
     double delay = dblrand() * maxProcDelay;
@@ -167,7 +165,7 @@ void MosaicProxyApp::receivePacket(omnetpp::cMessage *msg) {
     auto udp_packet = inet::check_and_cast<inet::Packet*>(msg);
     auto cPacket = udp_packet->popAtBack<inet::cPacketChunk>().get()->getPacket();
     auto packet = omnetpp::check_and_cast<MosaicAppPacket*>(cPacket);
-    EV << "MosaicUDP: srcNodeId " << packet->getNodeId() << ", msgId " << packet->getMsgId() << std::endl;
+    EV << "srcNodeId " << packet->getNodeId() << ", msgId " << packet->getMsgId() << std::endl;
     packet->setNodeId(m_externalId);
 
     send(packet->dup(), gate("fedOut"));
