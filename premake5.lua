@@ -65,6 +65,8 @@ project "omnetpp-federate-LIBRARY"
         , "src/mgmt/*.cc" 
         , PROTO_CC_PATH .. "/ClientServerChannel.h"
         , PROTO_CC_PATH .. "/ClientServerChannel.cc"
+        , "src/util/Log.h"
+        , "src/util/Log.cc"
         , PROTO_CC_PATH .. "/ClientServerChannelMessages.pb.h"
         , PROTO_CC_PATH .. "/ClientServerChannelMessages.pb.cc"
         }
