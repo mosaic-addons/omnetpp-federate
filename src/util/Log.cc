@@ -20,35 +20,34 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
- 
- #include "Log.h"
- #include <omnetpp/clog.h>
 
+#include "Log.h"
+#include <omnetpp/clog.h>
 
 void set_log_level(omnetpp::LogLevel omnetpp_level) {
   // map OMNeT++ log level to LogLevel
   switch (omnetpp_level) {
-    case omnetpp::LOGLEVEL_TRACE:
-      g_log_level = LOG_LEVEL_LOGIC;
-      break;
-    case omnetpp::LOGLEVEL_DEBUG:
-      g_log_level = LOG_LEVEL_FUNCTION;
-      break;
-    case omnetpp::LOGLEVEL_DETAIL:
-      g_log_level = LOG_LEVEL_INFO;
-      break;
-    case omnetpp::LOGLEVEL_INFO:
-      g_log_level = LOG_LEVEL_DEBUG;
-      break;
-    case omnetpp::LOGLEVEL_WARN:
-      g_log_level = LOG_LEVEL_WARN;
-      break;
-    case omnetpp::LOGLEVEL_ERROR:
-    case omnetpp::LOGLEVEL_FATAL:
-      g_log_level = LOG_LEVEL_ERROR;
-      break;
-    case omnetpp::LOGLEVEL_OFF:
-      g_log_level = LOG_NONE;
+  case omnetpp::LOGLEVEL_TRACE:
+    g_log_level = LOG_LEVEL_LOGIC;
+    break;
+  case omnetpp::LOGLEVEL_DEBUG:
+    g_log_level = LOG_LEVEL_FUNCTION;
+    break;
+  case omnetpp::LOGLEVEL_DETAIL:
+    g_log_level = LOG_LEVEL_INFO;
+    break;
+  case omnetpp::LOGLEVEL_INFO:
+    g_log_level = LOG_LEVEL_DEBUG;
+    break;
+  case omnetpp::LOGLEVEL_WARN:
+    g_log_level = LOG_LEVEL_WARN;
+    break;
+  case omnetpp::LOGLEVEL_ERROR:
+  case omnetpp::LOGLEVEL_FATAL:
+    g_log_level = LOG_LEVEL_ERROR;
+    break;
+  case omnetpp::LOGLEVEL_OFF:
+    g_log_level = LOG_NONE;
   }
 }
 
@@ -59,35 +58,25 @@ bool is_LOG_enabled(int level) {
     return false;
 }
 
+// copied from ns-3.34, file: core/log.cc
+ParameterLogger::ParameterLogger(std::ostream &os) : m_first(true), m_os(os) {}
 
 // copied from ns-3.34, file: core/log.cc
-ParameterLogger::ParameterLogger (std::ostream &os)
-  : m_first (true),
-    m_os (os)
-{}
-
-// copied from ns-3.34, file: core/log.cc
-template<>
-ParameterLogger &
-ParameterLogger::operator<< <std::string> (const std::string param)
-{
-  if (m_first)
-    {
-      m_os << "\"" << param << "\"";
-      m_first = false;
-    }
-  else
-    {
-      m_os << ", \"" << param << "\"";
-    }
+template <>
+ParameterLogger &ParameterLogger::operator<< <std::string>(
+    const std::string param) {
+  if (m_first) {
+    m_os << "\"" << param << "\"";
+    m_first = false;
+  } else {
+    m_os << ", \"" << param << "\"";
+  }
   return *this;
 }
 
 // copied from ns-3.34, file: core/log.cc
-template<>
-ParameterLogger &
-ParameterLogger::operator<< <const char *> (const char * param)
-{
-  (*this) << std::string (param);
+template <>
+ParameterLogger &ParameterLogger::operator<< <const char *>(const char *param) {
+  (*this) << std::string(param);
   return *this;
 }

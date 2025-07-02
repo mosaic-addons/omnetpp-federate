@@ -27,11 +27,11 @@ namespace omnetpp_federate {
 Define_Module(MosaicMobility);
 
 MosaicMobility::MosaicMobility() {
-    // nop
+  // nop
 }
 
 MosaicMobility::~MosaicMobility() {
-    // nop
+  // nop
 }
 
 /**
@@ -40,12 +40,12 @@ MosaicMobility::~MosaicMobility() {
  * @param stage
  */
 void MosaicMobility::initialize(int stage) {
-    EV << "Initialize MosaicMobility stage " << stage << std::endl;
-    inet::MobilityBase::initialize(stage);
+  EV << "Initialize MosaicMobility stage " << stage << std::endl;
+  inet::MobilityBase::initialize(stage);
 
-    if (stage == 1) {
-        debug = par("debug");
-    }
+  if (stage == 1) {
+    debug = par("debug");
+  }
 }
 
 /**
@@ -55,7 +55,7 @@ void MosaicMobility::initialize(int stage) {
  * 		nodeId as managed within Mosaic
  */
 void MosaicMobility::setExternalId(int externalId) {
-    this->externalId = externalId;
+  this->externalId = externalId;
 }
 
 /**
@@ -65,10 +65,10 @@ void MosaicMobility::setExternalId(int externalId) {
  * 		the new Orientation in EulerAngles
  */
 void MosaicMobility::setNextOrientation(inet::EulerAngles nextOri) {
-    // Update position coordinates
-    lastOrientation = inet::Quaternion(nextOri);
-    emitMobilityStateChangedSignal();
-    refreshDisplay();
+  // Update position coordinates
+  lastOrientation = inet::Quaternion(nextOri);
+  emitMobilityStateChangedSignal();
+  refreshDisplay();
 }
 
 /**
@@ -77,34 +77,35 @@ void MosaicMobility::setNextOrientation(inet::EulerAngles nextOri) {
  * @param nextPos
  *      next position to be updated as (x,y)
  */
-void MosaicMobility::setNextPosition(inet::Coord& nextPos) {
-    // Update position coordinates
-    lastPosition.x = nextPos.x;
-    lastPosition.y = nextPos.y;
-    lastPosition.z = nextPos.z;
+void MosaicMobility::setNextPosition(inet::Coord &nextPos) {
+  // Update position coordinates
+  lastPosition.x = nextPos.x;
+  lastPosition.y = nextPos.y;
+  lastPosition.z = nextPos.z;
 
-    emitMobilityStateChangedSignal();
-    refreshDisplay();
+  emitMobilityStateChangedSignal();
+  refreshDisplay();
 }
 
 /**
  * @return the current position in the simulation
  */
-inet::Coord MosaicMobility::getCurrentPosition() {
-    return lastPosition;
-}
+inet::Coord MosaicMobility::getCurrentPosition() { return lastPosition; }
 
 /**
  * @return the current orientation of the object
  */
 inet::Quaternion MosaicMobility::getCurrentAngularPosition() {
-    return lastOrientation;
+  return lastOrientation;
 }
 
 void MosaicMobility::setInitialPosition() {
-    if (lastPosition == inet::Coord::NIL) { //only call the original setInitialPosition if position was never changed (dirty: you can not insert nodes at 0.0,0.0,0.0)
-        inet::MobilityBase::setInitialPosition();
-    }
+  if (lastPosition ==
+      inet::Coord::NIL) { // only call the original setInitialPosition if
+                          // position was never changed (dirty: you can not
+                          // insert nodes at 0.0,0.0,0.0)
+    inet::MobilityBase::setInitialPosition();
+  }
 }
 
 } // namespace omnetpp_federate

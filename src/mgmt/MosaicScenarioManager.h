@@ -29,8 +29,8 @@
 #include "util/ClientServerChannel.h"
 
 #include "inet/common/INETDefs.h"
-#include "inet/common/geometry/common/Coord.h"
 #include "inet/common/ModuleAccess.h"
+#include "inet/common/geometry/common/Coord.h"
 #include "inet/networklayer/contract/ipv4/Ipv4Address.h"
 
 namespace omnetpp_federate {
@@ -38,35 +38,36 @@ namespace omnetpp_federate {
 class MosaicScenarioManager : public cSimpleModule {
 
 public:
-    MosaicScenarioManager() = default;
-    virtual ~MosaicScenarioManager() = default;
+  MosaicScenarioManager() = default;
+  virtual ~MosaicScenarioManager() = default;
 
-    virtual void initialize();
-    virtual void finish();
-    virtual void handleMessage(cMessage *msg);
+  virtual void initialize();
+  virtual void finish();
+  virtual void handleMessage(cMessage *msg);
 
 private:
-    std::string vehModuleType;
-    std::string vehModuleName;
-    std::string rsuModuleType;
-    std::string rsuModuleName;
-    std::string moduleDisplayString;
-    inet::Ipv4Address addressBase;
-    inet::Ipv4Address netmask;
-    std::map<int, cModule*> nodes;
-    MosaicEventScheduler* sched;
+  std::string vehModuleType;
+  std::string vehModuleName;
+  std::string rsuModuleType;
+  std::string rsuModuleName;
+  std::string moduleDisplayString;
+  inet::Ipv4Address addressBase;
+  inet::Ipv4Address netmask;
+  std::map<int, cModule *> nodes;
+  MosaicEventScheduler *sched;
 
-    virtual cModule* getManagedModule(int nodeId);
-    virtual void addModule(int nodeId, std::string type, std::string name, std::string displayString);
-    virtual void addNode(int nodeId, inet::Coord& position);
-    virtual void addRsuNode(int nodeId, inet::Coord& position);
-    virtual void moveNode(int nodeId, inet::Coord& position);
-    virtual void removeNode(int nodeId);
-    virtual void sendV2xMessage(cMessage *msg);
-    virtual void receiveV2xMessage(cMessage *msg);
-    virtual void configureRadio(cMessage *msg);
+  virtual cModule *getManagedModule(int nodeId);
+  virtual void addModule(int nodeId, std::string type, std::string name,
+                         std::string displayString);
+  virtual void addNode(int nodeId, inet::Coord &position);
+  virtual void addRsuNode(int nodeId, inet::Coord &position);
+  virtual void moveNode(int nodeId, inet::Coord &position);
+  virtual void removeNode(int nodeId);
+  virtual void sendV2xMessage(cMessage *msg);
+  virtual void receiveV2xMessage(cMessage *msg);
+  virtual void configureRadio(cMessage *msg);
 };
 
-} //namespace omnetpp_federate
+} // namespace omnetpp_federate
 
 #endif
