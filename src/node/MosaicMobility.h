@@ -59,19 +59,19 @@ public:
   /**
    * Returns the current position at the current simulation time.
    */
-  virtual inet::Coord getCurrentPosition() override;
+  virtual const inet::Coord &getCurrentPosition() override;
 
   /**
    * Returns the current velocity at the current simulation time.
    */
-  virtual inet::Coord getCurrentVelocity() override {
+  virtual const inet::Coord &getCurrentVelocity() override {
     return inet::Coord::ZERO;
   }
 
   /**
    * Returns the current angular position at the current simulation time.
    */
-  virtual inet::Quaternion getCurrentAngularPosition() override;
+  virtual const inet::Quaternion &getCurrentAngularPosition() override;
 
   /** @brief Initializes the position from the display string or from module
    * parameters. */
@@ -84,19 +84,21 @@ public:
   /**
    * Returns the current acceleration at the current simulation time.
    */
-  inet::Coord getCurrentAcceleration() { return inet::Coord::ZERO; };
+  virtual const inet::Coord &getCurrentAcceleration() override {
+    return inet::Coord::ZERO;
+  };
 
   /**
    * Returns the current angular velocity at the current simulation time.
    */
-  inet::Quaternion getCurrentAngularVelocity() {
+  virtual const inet::Quaternion &getCurrentAngularVelocity() override {
     return inet::Quaternion::IDENTITY;
   };
 
   /**
    * Returns the current angular acceleration at the current simulation time.
    */
-  inet::Quaternion getCurrentAngularAcceleration() {
+  virtual const inet::Quaternion &getCurrentAngularAcceleration() override {
     return inet::Quaternion::IDENTITY;
   };
 

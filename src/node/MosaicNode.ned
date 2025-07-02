@@ -28,7 +28,7 @@ import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.ipv4.Icmp;
 import inet.networklayer.ipv4.Ipv4NetworkLayer;
 import inet.networklayer.ipv4.Ipv4RoutingTable;
-import inet.physicallayer.ieee80211.packetlevel.Ieee80211Radio;
+import inet.physicallayer.wireless.ieee80211.packetlevel.Ieee80211Radio;
 import inet.routing.contract.IManetRouting;
 import inet.routing.gpsr.Gpsr;
 import inet.transportlayer.udp.Udp;

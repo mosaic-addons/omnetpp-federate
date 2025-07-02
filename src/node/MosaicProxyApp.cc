@@ -22,18 +22,17 @@
 
 #include "MosaicProxyApp.h"
 
-#include "inet/applications/common/SocketTag_m.h"
 #include "inet/common/Ptr.h"
 #include "inet/common/packet/Message.h"
 #include "inet/common/packet/Packet.h"
 #include "inet/common/packet/chunk/cPacketChunk.h"
+#include "inet/common/socket/SocketTag_m.h"
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/networklayer/ipv4/Ipv4InterfaceData.h"
-#include "inet/physicallayer/common/packetlevel/RadioMedium.h"
-#include "inet/physicallayer/contract/packetlevel/IRadio.h"
-#include "inet/physicallayer/contract/packetlevel/RadioControlInfo_m.h"
-#include "inet/physicallayer/ieee80211/packetlevel/Ieee80211ControlInfo_m.h"
+#include "inet/physicallayer/wireless/common/contract/packetlevel/IRadio.h"
+#include "inet/physicallayer/wireless/common/contract/packetlevel/RadioControlInfo_m.h"
+#include "inet/physicallayer/wireless/ieee80211/packetlevel/Ieee80211ControlInfo_m.h"
 #include "inet/transportlayer/common/L4PortTag_m.h"
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 
@@ -72,7 +71,7 @@ void MosaicProxyApp::initialize(int stage) {
             this->getParentModule())) {
       if (ift) {
         for (int i = 0; i < ift->getNumInterfaces(); i++) {
-          inet::InterfaceEntry *tmpIe = ift->getInterface(i);
+          inet::NetworkInterface *tmpIe = ift->getInterface(i);
           if (tmpIe == nullptr || tmpIe->isLoopback()) {
             continue;
           }
@@ -131,7 +130,7 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   addresses->setSrcAddress(localAddress);
   addresses->setDestAddress(destAddr);
   udpPacket->addTagIfAbsent<inet::SocketReq>()->setSocketId(
-      socket.generateSocketId());
+      socket.getSocketId());
   udpPacket->addTagIfAbsent<inet::L4PortReq>()->setDestPort(destPort);
 
   int channelId = packet->getChannelId();
@@ -171,8 +170,12 @@ void MosaicProxyApp::receivePacket(omnetpp::cMessage *msg) {
   EV << "MosaicUDP received packet: ";
 
   auto udp_packet = inet::check_and_cast<inet::Packet *>(msg);
-  auto cPacket = udp_packet->popAtBack<inet::cPacketChunk>().get()->getPacket();
+  auto cPacket =
+      udp_packet->popAtBack<inet::cPacketChunk>(udp_packet->getDataLength())
+          .get()
+          ->getPacket();
   auto packet = omnetpp::check_and_cast<MosaicAppPacket *>(cPacket);
+
   EV << "srcNodeId " << packet->getNodeId() << ", msgId " << packet->getMsgId()
      << std::endl;
   packet->setNodeId(m_externalId);
@@ -216,13 +219,13 @@ void MosaicProxyApp::handleConfiguration(MosaicConfigurationCmd *cmd) {
       }
       radio0Channel = cmd->getChannel00();
     } else if (cmd->getNumchannels0() == 2) { // switching case
-      // Not yet implemented
+                                              // Not yet implemented
     }
 
     // now configure the IP address
-    ie0->getProtocolData<inet::Ipv4InterfaceData>()->setIPAddress(
+    ie0->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setIPAddress(
         cmd->getIp0());
-    ie0->getProtocolData<inet::Ipv4InterfaceData>()->setNetmask(
+    ie0->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet0());
     ie0->setBroadcast(true);
     return;
@@ -260,14 +263,14 @@ void MosaicProxyApp::handleConfiguration(MosaicConfigurationCmd *cmd) {
     }
 
     // configure the IP addresses of the two radios
-    ie0->getProtocolData<inet::Ipv4InterfaceData>()->setIPAddress(
+    ie0->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setIPAddress(
         cmd->getIp0());
-    ie0->getProtocolData<inet::Ipv4InterfaceData>()->setNetmask(
+    ie0->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet0());
     ie0->setBroadcast(true);
-    ie1->getProtocolData<inet::Ipv4InterfaceData>()->setIPAddress(
+    ie1->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setIPAddress(
         cmd->getIp1());
-    ie1->getProtocolData<inet::Ipv4InterfaceData>()->setNetmask(
+    ie1->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet1());
     ie1->setBroadcast(true);
     return;
