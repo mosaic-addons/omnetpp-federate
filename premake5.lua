@@ -82,7 +82,7 @@ project "omnetpp-federate-LIBRARY"
 
   libdirs { "/usr/lib" }
 
-  buildoptions { "-std=c++11" }
+  buildoptions { "-std=c++17"}
   links { "protobuf" }
 
   filter "configurations:Debug"

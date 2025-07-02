@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <vector>
 
 #include "Log.h"
 #include <omnetpp.h>
@@ -323,8 +324,8 @@ CMD ClientServerChannel::readCommand() {
   }
   LOG_LOGIC("read command announced message size: " << *message_size);
   // Allocate a fitting buffer and read message from stream
-  char message_buffer[*message_size];
-  size_t res = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+  std::vector<char> message_buffer(*message_size);
+  size_t res = recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
   LOG_LOGIC("readCommand recv result: " << res);
   if (*message_size > 0 && res != *message_size) {
     std::cerr << "ERROR: expected " << *message_size << " bytes, but red "
@@ -345,7 +346,7 @@ CMD ClientServerChannel::readCommand() {
       sleep(1);
       LOG_LOGIC("poll ...");
     } while (poll_res < 1);
-    res = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+    res = recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
     if (retries != 3 && res < 1) {
       std::cerr << "ERROR: socket is ready, but cannot receive any bytes ("
                 << res << "). Message sent?" << std::endl;
@@ -359,10 +360,10 @@ CMD ClientServerChannel::readCommand() {
   }
   if (*message_size > 0) {
     LOG_LOGIC("message buffer as byte array: "
-              << debug_byte_array(message_buffer, *message_size));
+              << debug_byte_array(message_buffer.data(), *message_size));
     // Create the streams that can parse the received data into the protobuf
     // class
-    google::protobuf::io::ArrayInputStream arrayIn(message_buffer,
+    google::protobuf::io::ArrayInputStream arrayIn(message_buffer.data(),
                                                    *message_size);
     google::protobuf::io::CodedInputStream codedIn(&arrayIn);
 
@@ -389,11 +390,13 @@ int ClientServerChannel::readInit(CSC_init_return &return_value) {
     return -1;
   }
   LOG_LOGIC("read init announced message size: " << *message_size);
-  char message_buffer[*message_size];
-  const size_t count = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+  std::vector<char> message_buffer(*message_size);
+  const size_t count =
+      recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
   LOG_LOGIC("read init received message size: " << count);
 
-  google::protobuf::io::ArrayInputStream arrayIn(message_buffer, *message_size);
+  google::protobuf::io::ArrayInputStream arrayIn(message_buffer.data(),
+                                                 *message_size);
   google::protobuf::io::CodedInputStream codedIn(&arrayIn);
 
   InitMessage init_message;
@@ -425,8 +428,9 @@ int ClientServerChannel::readUpdateNode(CSC_update_node_return &return_value) {
     return 0;
   }
 
-  char message_buffer[*message_size];
-  const size_t count = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+  std::vector<char> message_buffer(*message_size);
+  const size_t count =
+      recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
   LOG_LOGIC("read update node received message size: " << count);
 
   if (*message_size != count) {
@@ -435,7 +439,8 @@ int ClientServerChannel::readUpdateNode(CSC_update_node_return &return_value) {
     return -1;
   }
 
-  google::protobuf::io::ArrayInputStream arrayIn(message_buffer, *message_size);
+  google::protobuf::io::ArrayInputStream arrayIn(message_buffer.data(),
+                                                 *message_size);
   google::protobuf::io::CodedInputStream codedIn(&arrayIn);
 
   UpdateNode update_message;
@@ -498,11 +503,13 @@ int64_t ClientServerChannel::readTimeMessage() {
   }
   LOG_LOGIC("read time announced message size: " << *message_size);
 
-  char message_buffer[*message_size];
-  const size_t count = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+  std::vector<char> message_buffer(*message_size);
+  const size_t count =
+      recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
   LOG_LOGIC("read time received message size: " << count);
 
-  google::protobuf::io::ArrayInputStream arrayIn(message_buffer, *message_size);
+  google::protobuf::io::ArrayInputStream arrayIn(message_buffer.data(),
+                                                 *message_size);
   google::protobuf::io::CodedInputStream codedIn(&arrayIn);
 
   TimeMessage time_message;
@@ -528,11 +535,13 @@ int ClientServerChannel::readConfigurationMessage(
   }
   LOG_LOGIC("read config announced message size: " << *message_size);
 
-  char message_buffer[*message_size];
-  const size_t count = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+  std::vector<char> message_buffer(*message_size);
+  const size_t count =
+      recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
   LOG_LOGIC("read config received message size: " << count);
 
-  google::protobuf::io::ArrayInputStream arrayIn(message_buffer, *message_size);
+  google::protobuf::io::ArrayInputStream arrayIn(message_buffer.data(),
+                                                 *message_size);
   google::protobuf::io::CodedInputStream codedIn(&arrayIn);
 
   ConfigureRadioMessage conf_message;
@@ -660,11 +669,13 @@ int ClientServerChannel::readSendMessage(CSC_send_message &return_value) {
   }
   LOG_LOGIC("read send announced message size: " << *message_size);
 
-  char message_buffer[*message_size];
-  const size_t count = recv(sock, message_buffer, *message_size, MSG_WAITALL);
+  std::vector<char> message_buffer(*message_size);
+  const size_t count =
+      recv(sock, message_buffer.data(), *message_size, MSG_WAITALL);
   LOG_LOGIC("read send received message size: " << count);
 
-  google::protobuf::io::ArrayInputStream arrayIn(message_buffer, *message_size);
+  google::protobuf::io::ArrayInputStream arrayIn(message_buffer.data(),
+                                                 *message_size);
   google::protobuf::io::CodedInputStream codedIn(&arrayIn);
 
   SendMessageMessage send_message;
@@ -729,30 +740,22 @@ void ClientServerChannel::writeCommand(CMD cmd) {
   CommandMessage commandMessage;
   commandMessage.set_command_type(cmdToProtoCMD(cmd));
   int varintsize = google::protobuf::io::CodedOutputStream::VarintSize32(
-      commandMessage.ByteSize());
+      commandMessage.ByteSizeLong());
   LOG_LOGIC("write command varint size: " << varintsize);
-  int buffer_size = varintsize + commandMessage.ByteSize();
+  int buffer_size = varintsize + commandMessage.ByteSizeLong();
   LOG_LOGIC("write command buffer size: " << buffer_size);
-  char message_buffer[buffer_size];
+  std::vector<char> message_buffer(buffer_size);
 
-  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer, buffer_size);
+  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer.data(),
+                                                   buffer_size);
   google::protobuf::io::CodedOutputStream codedOut(&arrayOut);
 
-  codedOut.WriteVarint32(commandMessage.ByteSize());
+  codedOut.WriteVarint32(commandMessage.ByteSizeLong());
   commandMessage.SerializeToCodedStream(&codedOut);
-  const size_t count = send(sock, message_buffer, buffer_size, 0);
+  const size_t count = send(sock, message_buffer.data(), buffer_size, 0);
   LOG_LOGIC("write command send bytes: " << count);
 }
 
-/**
- * Writes a receiveMessage body onto the channel.
- *
- * @param time the simulation time at which the message receive occured
- * @param node_id the id of the receiving node
- * @param message_id the id of the received message
- * @param channel the receiver channel
- * @param rssi the rssi during the receive event
- */
 void ClientServerChannel::writeReceiveMessage(uint64_t time, int node_id,
                                               int message_id,
                                               RADIO_CHANNEL channel, int rssi) {
@@ -764,69 +767,62 @@ void ClientServerChannel::writeReceiveMessage(uint64_t time, int node_id,
   receive_message.set_channel_id(channelToProtoChannel(channel));
   receive_message.set_rssi(rssi);
   int varintsize = google::protobuf::io::CodedOutputStream::VarintSize32(
-      receive_message.ByteSize());
+      receive_message.ByteSizeLong());
   LOG_LOGIC("write receive message varint size: " << varintsize);
-  int buffer_size = varintsize + receive_message.ByteSize();
+  int buffer_size = varintsize + receive_message.ByteSizeLong();
   LOG_LOGIC("write receive message buffer size: " << buffer_size);
-  char message_buffer[buffer_size];
+  std::vector<char> message_buffer(buffer_size);
 
-  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer, buffer_size);
+  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer.data(),
+                                                   buffer_size);
   google::protobuf::io::CodedOutputStream codedOut(&arrayOut);
 
-  codedOut.WriteVarint32(receive_message.ByteSize());
+  codedOut.WriteVarint32(receive_message.ByteSizeLong());
   receive_message.SerializeToCodedStream(&codedOut);
-  const size_t count = send(sock, message_buffer, buffer_size, 0);
+  const size_t count = send(sock, message_buffer.data(), buffer_size, 0);
   LOG_LOGIC("write receive message send bytes: " << count);
 }
 
-/**
- * Writes a time onto the channel
- *
- * @param time the time to write
- */
 void ClientServerChannel::writeTimeMessage(int64_t time) {
   LOG_FUNCTION(this << time);
   TimeMessage time_message;
   time_message.set_time(time);
   int varintsize = google::protobuf::io::CodedOutputStream::VarintSize32(
-      time_message.ByteSize());
+      time_message.ByteSizeLong());
   LOG_LOGIC("write time message varint size: " << varintsize);
-  int buffer_size = varintsize + time_message.ByteSize();
+  int buffer_size = varintsize + time_message.ByteSizeLong();
   LOG_LOGIC("write time message buffer size: " << buffer_size);
-  char message_buffer[buffer_size];
+  std::vector<char> message_buffer(buffer_size);
 
-  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer, buffer_size);
+  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer.data(),
+                                                   buffer_size);
   google::protobuf::io::CodedOutputStream codedOut(&arrayOut);
 
-  codedOut.WriteVarint32(time_message.ByteSize());
+  codedOut.WriteVarint32(time_message.ByteSizeLong());
   time_message.SerializeToCodedStream(&codedOut);
-  const size_t count = send(sock, message_buffer, buffer_size, 0);
+  const size_t count = send(sock, message_buffer.data(), buffer_size, 0);
   LOG_LOGIC("write time message send bytes: " << count);
 }
 
-/**
- * Sends port to ambassador.
- *
- * @param port port
- */
 void ClientServerChannel::writePort(uint32_t port) {
   LOG_FUNCTION(this << port);
   PortExchange port_exchange;
   port_exchange.set_port_number(port);
   LOG_LOGIC("write port exchange: " << port_exchange.port_number());
   int varintsize = google::protobuf::io::CodedOutputStream::VarintSize32(
-      port_exchange.ByteSize());
+      port_exchange.ByteSizeLong());
   LOG_LOGIC("write port message varint size: " << varintsize);
-  int buffer_size = varintsize + port_exchange.ByteSize();
+  int buffer_size = varintsize + port_exchange.ByteSizeLong();
   LOG_LOGIC("write port message buffer size: " << buffer_size);
-  char message_buffer[buffer_size];
+  std::vector<char> message_buffer(buffer_size);
 
-  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer, buffer_size);
+  google::protobuf::io::ArrayOutputStream arrayOut(message_buffer.data(),
+                                                   buffer_size);
   google::protobuf::io::CodedOutputStream codedOut(&arrayOut);
 
-  codedOut.WriteVarint32(port_exchange.ByteSize());
+  codedOut.WriteVarint32(port_exchange.ByteSizeLong());
   port_exchange.SerializeToCodedStream(&codedOut);
-  const size_t count = send(sock, message_buffer, buffer_size, 0);
+  const size_t count = send(sock, message_buffer.data(), buffer_size, 0);
   LOG_LOGIC("write port message send bytes: " << count);
 }
 

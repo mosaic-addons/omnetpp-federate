@@ -33,6 +33,8 @@ cplusplus {{
 cplusplus{{
     using inet::units::values::B;
     using inet::units::values::unit2string;
+    using omnetpp::cValue;
+
 }}
 
 namespace omnetpp_federate;

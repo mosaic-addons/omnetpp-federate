@@ -90,20 +90,20 @@ void MosaicMobility::setNextPosition(inet::Coord &nextPos) {
 /**
  * @return the current position in the simulation
  */
-inet::Coord MosaicMobility::getCurrentPosition() { return lastPosition; }
+const inet::Coord &MosaicMobility::getCurrentPosition() { return lastPosition; }
 
 /**
  * @return the current orientation of the object
  */
-inet::Quaternion MosaicMobility::getCurrentAngularPosition() {
+const inet::Quaternion &MosaicMobility::getCurrentAngularPosition() {
   return lastOrientation;
 }
 
 void MosaicMobility::setInitialPosition() {
   if (lastPosition ==
       inet::Coord::NIL) { // only call the original setInitialPosition if
-                          // position was never changed (dirty: you can not
-                          // insert nodes at 0.0,0.0,0.0)
+    // position was never changed (dirty: you can not
+    // insert nodes at 0.0,0.0,0.0)
     inet::MobilityBase::setInitialPosition();
   }
 }

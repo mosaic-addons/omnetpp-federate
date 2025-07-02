@@ -22,7 +22,7 @@
 
 package omnetpp_federate.mgmt;
 
-import inet.physicallayer.ieee80211.packetlevel.Ieee80211ScalarRadioMedium;
+import inet.physicallayer.wireless.ieee80211.packetlevel.Ieee80211ScalarRadioMedium;
 import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
 import inet.node.gpsr.GpsrRouter;
 import inet.node.inet.AdhocHost;
