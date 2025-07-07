@@ -42,7 +42,7 @@ module MosaicNode {
         @networkNode;
         @display("bgb=548.6,617.5");
         @display("i=device/wifilaptop");
-        string routingProtocol @enum("GPSR") = default("");	//Preparation to eventually support geo routing
+        string routingProtocol @enum("", "GPSR") = default("");
         *.interfaceTableModule = default(absPath(".interfaceTable"));
         **.routingTableModule = default(absPath(".routingTable"));
         *.radio.typename = default("Ieee80211Radio");

@@ -80,6 +80,8 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
 
   if (strcmp(msg->getName(), "MosaicMobilityCmd") == 0) {
     MosaicMobilityCmd *cmd = check_and_cast<MosaicMobilityCmd *>(msg);
+    EV << "MosaicScenarioManager received command: " << cmd->getCmdType()
+       << std::endl;
     if (cmd->getCmdType() == MOBILITY_CMD_ADD_NODES) {
       for (unsigned int i = 0; i < cmd->getNodeIdArraySize(); i++) {
         nodeId = cmd->getNodeId(i);
@@ -184,8 +186,24 @@ void MosaicScenarioManager::addModule(int nodeId, std::string type,
   }
 
   unsigned int nodeVectorIndex = nodeId;
-  cModule *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex,
-                                  nodeVectorIndex);
+
+  // OMNeT++ 6.x: Ensure submodule vector exists before creating modules
+  if (!parentmod->hasSubmoduleVector(name.c_str())) {
+    // Add submodule vector with initial size to accommodate this node
+    parentmod->addSubmoduleVector(name.c_str(), nodeVectorIndex + 1);
+    EV << "Added submodule vector \"" << name << "\" with size "
+       << (nodeVectorIndex + 1) << std::endl;
+  } else if (parentmod->getSubmoduleVectorSize(name.c_str()) <=
+             nodeVectorIndex) {
+    // Expand existing vector if needed
+    parentmod->setSubmoduleVectorSize(name.c_str(), nodeVectorIndex + 1);
+    EV << "Expanded submodule vector \"" << name << "\" to size "
+       << (nodeVectorIndex + 1) << std::endl;
+  }
+  EV << "Creating module of type \"" << type << "\" with name \"" << name
+     << "\" at index " << nodeVectorIndex << " in parent module \""
+     << parentmod->getFullName() << "\"" << std::endl;
+  cModule *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex);
   mod->finalizeParameters();
   mod->getDisplayString().parse(displayString.c_str());
   mod->buildInside();
@@ -205,7 +223,7 @@ void MosaicScenarioManager::addNode(int nodeId, inet::Coord &position) {
   MosaicProxyApp *app;
   MosaicMobility *mobility;
 
-  cModule *submod = newNode->getSubmodule("proxyApp", 0);
+  cModule *submod = newNode->getSubmodule("proxyApp");
   if ((app = dynamic_cast<MosaicProxyApp *>(submod))) {
     this->setGateSize("mosaicProxyOut", this->gateSize("mosaicProxyOut") + 1);
     this->gate("mosaicProxyOut", nodeId)->connectTo(app->gate("fedIn"));
@@ -239,8 +257,12 @@ void MosaicScenarioManager::addRsuNode(int nodeId, inet::Coord &position) {
   MosaicProxyApp *app;
   MosaicMobility *mobility;
 
-  cModule *submod = newNode->getSubmodule("proxyApp", 0);
+  cModule *submod = newNode->getSubmodule("proxyApp");
+
   if ((app = dynamic_cast<MosaicProxyApp *>(submod))) {
+    // Initialize mosaicproxyapp module (external id and connection to fed)
+    EV << "MosaicScenarioManager adding rsu node " << nodeId << " with proxyApp"
+       << std::endl;
     this->setGateSize("mosaicProxyOut", this->gateSize("mosaicProxyOut") + 1);
     this->gate("mosaicProxyOut", nodeId)->connectTo(app->gate("fedIn"));
     this->setGateSize("mosaicProxyIn", this->gateSize("mosaicProxyIn") + 1);
