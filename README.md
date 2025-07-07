@@ -4,6 +4,22 @@
 
 The [packaging_script](package_federate.sh) can be used to package the current state of this repositories code and copy it to the desired destination, so that it can be used in conjunction with the **install** script of Eclipse MOSAIC.
 
+## Install/Build Dependencies
+
+The omnetpp-federate has the following dependencies:
+
+- `protobuf`
+- `gtest`
+- `inet` (tested with version `4.5.4`)
+- `omnetpp` (tested with version `6.1`) for dependencies on your system please refer to [Install guide](https://doc.omnetpp.org/omnetpp/InstallGuide.pdf)
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) (For installing Python deps needed for omnetpp and inet)
+- `python3-dev`
+
+In the case of Ubuntu system these commands **should** take care of installing the needed packages:
+```bash
+sudo apt update && sudo apt install -y build-essential pkg-config ccache clang curl lld gdb bison flex perl python3 python3-pip python3-venv libpython3-dev libxml2-dev zlib1g-dev doxygen graphviz xdg-utils libdw-dev
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 ## Usage
 
 ```bash
@@ -26,14 +42,7 @@ This is a summary of the recent changes on this branch:
   - Added instructions on how to use the `package_federate.sh` script.
   - Updated dependency versions to `inet-4.5.4` and `omnetpp-6.1`.
 
-## Install/Build Dependencies
 
-The omnetpp-federate has the following dependencies:
-
-- `protobuf`
-- `gtest`
-- `inet` (tested with version `4.5.4`)
-- `omnetpp` (tested with version `6.1`)
 
 <!-- This repository provides code to integrate the [OMNeT++](https://omnetpp.org/) network simulator with the Mobility Simulation Framework [Eclipse MOSAIC](https://github.com/eclipse/mosaic). The federate is a wrapper around OMNeT++ and the [INET](https://inet.omnetpp.org/) framework and provides a socket-based communication between this federate and the `OmnetppAmbassador`, thus enabling a coupling between those two tools.
 
