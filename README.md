@@ -1,6 +1,41 @@
 # MOSAIC OMNeT++ Federate
 
-This repository provides code to integrate the [OMNeT++](https://omnetpp.org/) network simulator with the Mobility Simulation Framework [Eclipse MOSAIC](https://github.com/eclipse/mosaic). The federate is a wrapper around OMNeT++ and the [INET](https://inet.omnetpp.org/) framework and provides a socket-based communication between this federate and the `OmnetppAmbassador`, thus enabling a coupling between those two tools.
+## Using OMNeT++ 6.1 with the MOSAIC Federate
+
+The [packaging_script](package_federate.sh) can be used to package the current state of this repositories code and copy it to the desired destination, so that it can be used in conjunction with the **install** script of Eclipse MOSAIC.
+
+## Usage
+
+```bash
+./package_federate.sh mosaic_install_folder/bin/fed/omnetpp
+```
+
+## Changelog
+
+This is a summary of the recent changes on this branch:
+
+- **Features**
+  - Added `package_federate.sh` script to easily package the federate for Eclipse MOSAIC.
+  - Updated the federate code to be compatible with `simu5` requirements, including INET package structure updates and migration to C++17 standard.
+- **Fixes**
+  - Corrected the creation of RSU and vehicle vectors and fixed default routing issues.
+  - Reverted a change in include order that was causing compilation errors.
+- **Configuration**
+  - Had to change the communicationCache `ReferenceCommunicationCache` to avoid vector bound errors
+- **Documentation**
+  - Added instructions on how to use the `package_federate.sh` script.
+  - Updated dependency versions to `inet-4.5.4` and `omnetpp-6.1`.
+
+## Install/Build Dependencies
+
+The omnetpp-federate has the following dependencies:
+
+- `protobuf`
+- `gtest`
+- `inet` (tested with version `4.5.4`)
+- `omnetpp` (tested with version `6.1`)
+
+<!-- This repository provides code to integrate the [OMNeT++](https://omnetpp.org/) network simulator with the Mobility Simulation Framework [Eclipse MOSAIC](https://github.com/eclipse/mosaic). The federate is a wrapper around OMNeT++ and the [INET](https://inet.omnetpp.org/) framework and provides a socket-based communication between this federate and the `OmnetppAmbassador`, thus enabling a coupling between those two tools.
 
 The federate can be build using the `omnet_installer.sh` script which is bundled with each Eclipse MOSAIC distribution. See [MOSAIC's website](https://www.eclipse.org/mosaic/docs/simulators/network_simulator_omnetpp/) for additional and detailed instructions.
 
@@ -12,12 +47,12 @@ The omnetpp-federate has the following dependencies:
 
 * `protobuf`
 * `gtest`
-* `inet` (tested with version `4.1`)
-* `omnetpp` (tested with version `5.5`)
+* `inet` (tested with version `4.5.4`, but see notes below for OMNeT++ 6.1 compatibility)
+* `omnetpp` (tested with version `6.1`)
 
 Building omnetpp-federate requires further dependencies:
 
-* `premake` 
+* `premake`
 * `premake-autoconf`
 
 The source code and binary tar balls for Windows, Linux and Mac OS X of ```premake``` are available at https://premake.github.io/download.html.
@@ -36,7 +71,6 @@ It consists of a flat directory of ```lua``` files. These can be directly placed
 in a directory your ```premake5``` can find it. Usually it will show the search directories that is looking into for modules when a module was not found, i.e. ```/usr/local/share/lua/5.3/```. The ```premake5-autoconf``` module introduces support for ```autoconf``` style checks for headers and libraries and, and full ```clang``` support.
 
 Ubuntu 16.04 xenial users can use a package from "PPA for Paul McEnery", see https://launchpad.net/~pmcenery/+archive/ubuntu/ppa/+packages?field.name_filter=premake&field.status_filter=published&field.series_filter=.
-
 
 ## Build from ```MOSAIC``` source
 
@@ -72,4 +106,4 @@ Otherwise, if there are multiple directories then you can specify the NED source
 ```bash
 ~$ export NEDPATH="/usr/include/inet:/usr/share/ned"
 ~$ /usr/bin/omnetpp-federate
-```
+``` -->
