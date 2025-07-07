@@ -25,8 +25,8 @@
 
 #include <omnetpp.h>
 
-#include "msg/MosaicMobilityCmd_m.h"
 #include "util/ClientServerChannel.h"
+#include "msg/MosaicMobilityCmd_m.h"
 
 namespace omnetpp_federate {
 using namespace omnetpp;
