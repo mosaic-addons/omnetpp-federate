@@ -352,6 +352,7 @@ void MosaicScenarioManager::sendV2xMessage(cMessage *msg) {
       send(packet->dup(), "mosaicProxyOut", nodeId);
       EV << "MosaicScenarioManager send udp message " << msgId << " from node "
          << nodeId << " at time " << simTime() << std::endl;
+      delete packet;
     }
   }
 }
