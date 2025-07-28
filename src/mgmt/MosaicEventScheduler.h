@@ -24,6 +24,7 @@
 #define MOSAICEVENTSCHEDULER_H_
 
 #include <omnetpp.h>
+#include <memory>
 
 #include "util/ClientServerChannel.h"
 #include "msg/MosaicMobilityCmd_m.h"
@@ -57,8 +58,8 @@ private:
   std::string m_host;
   int m_port;
   int m_cmdport;
-  ClientServerChannel *m_ambassadorFederateChannel;
-  ClientServerChannel *m_federateAmbassadorChannel;
+  std::unique_ptr<ClientServerChannel> m_ambassadorFederateChannel;
+  std::unique_ptr<ClientServerChannel> m_federateAmbassadorChannel;
   simtime_t m_startTime;
   simtime_t m_stopTime;
   simtime_t m_currentMaxSimTime;

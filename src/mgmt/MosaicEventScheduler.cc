@@ -25,8 +25,10 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <signal.h>
 #include <sstream>
+#include <string>
 #include <unistd.h>
 #include <vector>
 
@@ -43,12 +45,24 @@ namespace std {
 std::ostream &operator<<(std::ostream &out,
                          omnetpp_federate::MobilityCommandType type) {
   switch (type) {
-  case omnetpp_federate::MOBILITY_CMD_ADD_RADIO_VEH_NODE: out << "MOBILITY_CMD_ADD_RADIO_VEH_NODE"; break;
-  case omnetpp_federate::MOBILITY_CMD_ADD_RADIO_RSU_NODE: out << "MOBILITY_CMD_ADD_RADIO_RSU_NODE"; break;
-  case omnetpp_federate::MOBILITY_CMD_ADD_WIRED_NODE: out << "MOBILITY_CMD_ADD_WIRED_NODE"; break;
-  case omnetpp_federate::MOBILITY_CMD_ADD_NODE_B: out << "MOBILITY_CMD_ADD_NODE_B"; break;
-  case omnetpp_federate::MOBILITY_CMD_MOVE_NODES: out << "MOBILITY_CMD_MOVE_NODES"; break;
-  case omnetpp_federate::MOBILITY_CMD_REMOVE_NODE: out << "MOBILITY_CMD_REMOVE_NODE"; break;
+  case omnetpp_federate::MOBILITY_CMD_ADD_RADIO_VEH_NODE:
+    out << "MOBILITY_CMD_ADD_RADIO_VEH_NODE";
+    break;
+  case omnetpp_federate::MOBILITY_CMD_ADD_RADIO_RSU_NODE:
+    out << "MOBILITY_CMD_ADD_RADIO_RSU_NODE";
+    break;
+  case omnetpp_federate::MOBILITY_CMD_ADD_WIRED_NODE:
+    out << "MOBILITY_CMD_ADD_WIRED_NODE";
+    break;
+  case omnetpp_federate::MOBILITY_CMD_ADD_NODE_B:
+    out << "MOBILITY_CMD_ADD_NODE_B";
+    break;
+  case omnetpp_federate::MOBILITY_CMD_MOVE_NODES:
+    out << "MOBILITY_CMD_MOVE_NODES";
+    break;
+  case omnetpp_federate::MOBILITY_CMD_REMOVE_NODE:
+    out << "MOBILITY_CMD_REMOVE_NODE";
+    break;
   }
   return out;
 }
@@ -104,8 +118,8 @@ void MosaicEventScheduler::endRun() {
     // toggle the once flag
     once = true;
 
-    delete m_ambassadorFederateChannel;
-    delete m_federateAmbassadorChannel;
+    m_ambassadorFederateChannel.reset();
+    m_federateAmbassadorChannel.reset();
 
     EV_DEBUG << "MosaicEventScheduler ended" << endl;
   }
@@ -131,7 +145,7 @@ void MosaicEventScheduler::endRun() {
  * If no init-message can be read, the federate sends END-message to ambassador
  */
 void MosaicEventScheduler::connectToAmbassador() {
-  m_federateAmbassadorChannel = new ClientServerChannel();
+  m_federateAmbassadorChannel = std::make_unique<ClientServerChannel>();
 
   const int actPort =
       m_federateAmbassadorChannel->prepareConnection(m_host, m_port);
@@ -141,7 +155,7 @@ void MosaicEventScheduler::connectToAmbassador() {
   }
   // phenomenon: printing of the whole line fails non-deterministic leading to
   // wrong test result (fixme when reproduced)
-  const std::string outPortString =
+  const auto outPortString =
       "MosaicEventScheduler connecting on OutPort=" + std::to_string(actPort) +
       " ";
   usleep(1000000);
@@ -149,7 +163,7 @@ void MosaicEventScheduler::connectToAmbassador() {
   EV_DEBUG << outPortString << endl;
   m_federateAmbassadorChannel->connect();
 
-  m_ambassadorFederateChannel = new ClientServerChannel();
+  m_ambassadorFederateChannel = std::make_unique<ClientServerChannel>();
   const int actCmdPort =
       m_ambassadorFederateChannel->prepareConnection(m_host, m_cmdport);
   std::cout << "MosaicEventScheduler connecting on CmdPort=" << actCmdPort
@@ -161,12 +175,14 @@ void MosaicEventScheduler::connectToAmbassador() {
   EV_DEBUG << "MosaicEventScheduler connected to Ambassador" << endl;
 
   EV_DEBUG << "MosaicEventScheduler wait INIT" << endl;
-  CommandMessage_CommandType command = m_ambassadorFederateChannel->readCommand();
+  const auto command = m_ambassadorFederateChannel->readCommand();
   if (command == CommandMessage_CommandType_INIT) {
     // Initialize simulation times
-    InitMessage message = m_ambassadorFederateChannel->readInitMessage();
-    m_startTime = SimTime(message.simulation_start_time(), SimTimeUnit::SIMTIME_NS);
-    m_stopTime = SimTime(message.simulation_end_time(), SimTimeUnit::SIMTIME_NS);
+    const auto message = m_ambassadorFederateChannel->readInitMessage();
+    m_startTime =
+        SimTime(message.simulation_start_time(), SimTimeUnit::SIMTIME_NS);
+    m_stopTime =
+        SimTime(message.simulation_end_time(), SimTimeUnit::SIMTIME_NS);
     EV_DEBUG << "MosaicEventScheduler simulation times: Start ("
              << m_startTime.str() << "s), Stop (" << m_stopTime.str() << "s)"
              << endl;
@@ -174,9 +190,11 @@ void MosaicEventScheduler::connectToAmbassador() {
     m_currentMaxSimTime = m_startTime;
 
     EV_DEBUG << "MosaicEventScheduler successfully initialized" << endl;
-    m_ambassadorFederateChannel->writeCommand(CommandMessage_CommandType_SUCCESS);
+    m_ambassadorFederateChannel->writeCommand(
+        CommandMessage_CommandType_SUCCESS);
   } else {
-    m_ambassadorFederateChannel->writeCommand(CommandMessage_CommandType_SHUT_DOWN);
+    m_ambassadorFederateChannel->writeCommand(
+        CommandMessage_CommandType_SHUT_DOWN);
     cRuntimeError("MosaicEventScheduler FAILURE (unexpected command %d)",
                   command);
   }
@@ -192,8 +210,8 @@ void MosaicEventScheduler::putBackEvent(cEvent *event) {
 }
 
 cEvent *MosaicEventScheduler::takeNextEvent() {
-  simtime_t nextTime = 0;
-  simtime_t curTime = getSimulation()->getSimTime();
+  auto nextTime = simtime_t{0};
+  auto curTime = getSimulation()->getSimTime();
   curTime = curTime - curTime.remainderForUnit(SimTimeUnit::SIMTIME_NS);
   do {
     if (!m_timeAdvancing) {
@@ -223,8 +241,8 @@ cEvent *MosaicEventScheduler::takeNextEvent() {
   } while (!m_timeAdvancing || getSimulation()->getFES()->isEmpty() ||
            nextTime > m_currentMaxSimTime);
 
-  cEvent *event = getSimulation()->getFES()->removeFirst();
-  if (event != NULL && !event->isStale()) {
+  auto *event = getSimulation()->getFES()->removeFirst();
+  if (event != nullptr && !event->isStale()) {
     return event;
   } else {
     return this->takeNextEvent();
@@ -236,7 +254,8 @@ void MosaicEventScheduler::setMgmtModule(cModule *mod) { mgmt = mod; }
 void MosaicEventScheduler::reportNextEventToAmbassador(simtime_t nextSimTime) {
   EV_DEBUG << "MosaicEventScheduler request NEXT_EVENT: t=" << nextSimTime.str()
            << endl;
-  m_federateAmbassadorChannel->writeCommand(CommandMessage_CommandType_NEXT_EVENT);
+  m_federateAmbassadorChannel->writeCommand(
+      CommandMessage_CommandType_NEXT_EVENT);
   m_federateAmbassadorChannel->writeTimeMessage(
       nextSimTime.inUnit(SimTimeUnit::SIMTIME_NS));
 }
@@ -250,23 +269,24 @@ void MosaicEventScheduler::endTimeAdvance(simtime_t time) {
 }
 
 void MosaicEventScheduler::reportReceivedV2xMessage(cMessage *msg) {
-  MosaicAppPacket *packet = check_and_cast<MosaicAppPacket *>(msg);
+  auto *packet = check_and_cast<MosaicAppPacket *>(msg);
   EV_DEBUG << "MosaicEventScheduler report RECV_MESSAGE: t="
            << packet->getArrivalTime().str()
            << ", RecNodeId=" << packet->getNodeId()
            << ", MsgId=" << packet->getMsgId() << std::endl;
 
-  m_federateAmbassadorChannel->writeCommand(CommandMessage_CommandType_RECV_WIFI_MSG);
+  m_federateAmbassadorChannel->writeCommand(
+      CommandMessage_CommandType_RECV_WIFI_MSG);
   m_federateAmbassadorChannel->writeReceiveWifiMessage(
       packet->getArrivalTime().inUnit(SimTimeUnit::SIMTIME_NS),
       packet->getNodeId(), packet->getMsgId(),
-      (RadioChannel)packet->getChannelId(), 0);
+      static_cast<RadioChannel>(packet->getChannelId()), 0);
   // rssi and channel number are not reported
 }
 
 void MosaicEventScheduler::processShutDown() {
   EV_DEBUG << "MosaicEventScheduler received shut down command" << endl;
-  cMessage *finMessage = new cMessage("MosaicFinishCmd", 22);
+  auto *finMessage = new cMessage("MosaicFinishCmd", 22);
   finMessage->setTimestamp(m_currentMaxSimTime);
   finMessage->setArrivalTime(m_currentMaxSimTime);
   finMessage->setArrival(mgmt->getId(), -1);
@@ -274,25 +294,27 @@ void MosaicEventScheduler::processShutDown() {
 }
 
 void MosaicEventScheduler::processAddNode() {
-  AddNode message = m_ambassadorFederateChannel->readAddNode();
+  const auto message = m_ambassadorFederateChannel->readAddNode();
 
-  simtime_t time(message.time(), SimTimeUnit::SIMTIME_NS);
+  const auto time = SimTime(message.time(), SimTimeUnit::SIMTIME_NS);
 
-
-  auto cmdMessage = new MosaicMobilityCmd("MosaicMobilityCmd");
+  auto *cmdMessage = new MosaicMobilityCmd("MosaicMobilityCmd");
   cmdMessage->setNodeIdArraySize(1);
   cmdMessage->setNodeId(0, message.node_id());
 
   if (message.type() == AddNode_NodeType_RADIO_NODE) {
     cmdMessage->setCmdType(MOBILITY_CMD_ADD_RADIO_VEH_NODE);
-    EV_DEBUG << "MosaicEventScheduler received ADD_RADIO_NODE command: " << time.str() << endl;
+    EV_DEBUG << "MosaicEventScheduler received ADD_RADIO_NODE command: "
+             << time.str() << endl;
   } else if (message.type() == AddNode_NodeType_WIRED_NODE) {
     cmdMessage->setCmdType(MOBILITY_CMD_ADD_WIRED_NODE);
-    EV_DEBUG << "MosaicEventScheduler received ADD_WIRED_NODE command: " << time.str() << endl;
+    EV_DEBUG << "MosaicEventScheduler received ADD_WIRED_NODE command: "
+             << time.str() << endl;
   } else if (message.type() == AddNode_NodeType_NODE_B) {
     cmdMessage->setCmdType(MOBILITY_CMD_ADD_NODE_B);
-    EV_DEBUG << "MosaicEventScheduler received ADD_NODE_B command: " << time.str() << endl;
-  } 
+    EV_DEBUG << "MosaicEventScheduler received ADD_NODE_B command: "
+             << time.str() << endl;
+  }
 
   cmdMessage->setPositionArraySize(1);
   inet::Coord coord;
@@ -312,23 +334,24 @@ void MosaicEventScheduler::processAddNode() {
 }
 
 void MosaicEventScheduler::processUpdateNode() {
-  UpdateNode message = m_ambassadorFederateChannel->readUpdateNode();
+  const auto message = m_ambassadorFederateChannel->readUpdateNode();
 
-  simtime_t time(message.time(), SimTimeUnit::SIMTIME_NS);
+  const auto time = SimTime(message.time(), SimTimeUnit::SIMTIME_NS);
   const unsigned int numNodes = message.properties_size();
 
   EV_DEBUG << "MosaicEventScheduler received UPDATE_NODE command: "
            << time.str() << " for " << numNodes << " nodes" << endl;
 
-  auto cmdMessage = new MosaicMobilityCmd("MosaicMobilityCmd");
+  auto *cmdMessage = new MosaicMobilityCmd("MosaicMobilityCmd");
   cmdMessage->setCmdType(MOBILITY_CMD_MOVE_NODES);
   cmdMessage->setNodeIdArraySize(numNodes);
   cmdMessage->setPositionArraySize(numNodes);
 
-  for ( size_t i = 0; i < message.properties_size(); i++ ) {
-    UpdateNode_NodeData node_data = message.properties(i);
-    EV_DEBUG << "MosaicEventScheduler " << MOBILITY_CMD_MOVE_NODES << ": " << node_data.id()
-             << " at position " << node_data.x() << "," << node_data.y() << std::endl;
+  for (size_t i = 0; i < message.properties_size(); i++) {
+    const auto node_data = message.properties(i);
+    EV_DEBUG << "MosaicEventScheduler " << MOBILITY_CMD_MOVE_NODES << ": "
+             << node_data.id() << " at position " << node_data.x() << ","
+             << node_data.y() << std::endl;
     cmdMessage->setNodeId(i, node_data.id());
     inet::Coord coord;
     coord.x = node_data.x();
@@ -348,13 +371,14 @@ void MosaicEventScheduler::processUpdateNode() {
 }
 
 void MosaicEventScheduler::processRemoveNode() {
-  RemoveNode message = m_ambassadorFederateChannel->readRemoveNode();
+  const auto message = m_ambassadorFederateChannel->readRemoveNode();
 
-  simtime_t time(message.time(), SimTimeUnit::SIMTIME_NS);
+  const auto time = SimTime(message.time(), SimTimeUnit::SIMTIME_NS);
 
-  EV_DEBUG << "MosaicEventScheduler received REMOVE_NODE command: "<< time.str() << endl;
+  EV_DEBUG << "MosaicEventScheduler received REMOVE_NODE command: "
+           << time.str() << endl;
 
-  auto cmdMessage = new MosaicMobilityCmd("MosaicMobilityCmd");
+  auto *cmdMessage = new MosaicMobilityCmd("MosaicMobilityCmd");
   cmdMessage->setNodeIdArraySize(1);
   cmdMessage->setNodeId(0, message.node_id());
   cmdMessage->setCmdType(MOBILITY_CMD_REMOVE_NODE);
@@ -372,7 +396,7 @@ void MosaicEventScheduler::processRemoveNode() {
 }
 
 void MosaicEventScheduler::processSendWifiMsg() {
-  SendWifiMessage send_message = m_ambassadorFederateChannel->readSendWifiMessage();
+  const auto send_message = m_ambassadorFederateChannel->readSendWifiMessage();
   simtime_t time(send_message.time(), SimTimeUnit::SIMTIME_NS);
 
   EV_DEBUG << "MosaicEventScheduler.processSendWifiMsg() received time: "
@@ -406,7 +430,8 @@ void MosaicEventScheduler::processSendWifiMsg() {
 }
 
 void MosaicEventScheduler::processConfWifiRadio() {
-  ConfigureWifiRadio config_message = m_ambassadorFederateChannel->readConfigureWifiRadio();
+  const auto config_message =
+      m_ambassadorFederateChannel->readConfigureWifiRadio();
   simtime_t time(config_message.time(), SimTimeUnit::SIMTIME_NS);
 
   EV_DEBUG << "MosaicEventScheduler received time: " << time.str() << endl;
@@ -418,45 +443,64 @@ void MosaicEventScheduler::processConfWifiRadio() {
   confMessage->setArrival(mgmt->getId(), -1);
   confMessage->setMsgId(config_message.message_id());
   confMessage->setNodeId(config_message.node_id());
-  if (config_message.radio_number() == ConfigureWifiRadio_RadioNumber_SINGLE_RADIO) {
+  if (config_message.radio_number() ==
+      ConfigureWifiRadio_RadioNumber_SINGLE_RADIO) {
     confMessage->setNumRadios(1);
-  } else if (config_message.radio_number() == ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
+  } else if (config_message.radio_number() ==
+             ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
     confMessage->setNumRadios(2);
-  } else if (config_message.radio_number() == ConfigureWifiRadio_RadioNumber_NO_RADIO) {
+  } else if (config_message.radio_number() ==
+             ConfigureWifiRadio_RadioNumber_NO_RADIO) {
     confMessage->setNumRadios(0);
   }
-  if (config_message.radio_number() == ConfigureWifiRadio_RadioNumber_SINGLE_RADIO ||
-      config_message.radio_number() == ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
-    confMessage->setTurnedOn0(config_message.primary_radio_configuration().receiving_messages());
-    confMessage->setIp0(
-        inet::Ipv4Address(config_message.primary_radio_configuration().ip_address()));
-    confMessage->setSubnet0(
-        inet::Ipv4Address(config_message.primary_radio_configuration().subnet_address()));
-    confMessage->setPower0(config_message.primary_radio_configuration().transmission_power());
-    if (config_message.primary_radio_configuration().radio_mode() == ConfigureWifiRadio_RadioConfiguration_RadioMode_SINGLE_CHANNEL) {
+  if (config_message.radio_number() ==
+          ConfigureWifiRadio_RadioNumber_SINGLE_RADIO ||
+      config_message.radio_number() ==
+          ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
+    confMessage->setTurnedOn0(
+        config_message.primary_radio_configuration().receiving_messages());
+    confMessage->setIp0(inet::Ipv4Address(
+        config_message.primary_radio_configuration().ip_address()));
+    confMessage->setSubnet0(inet::Ipv4Address(
+        config_message.primary_radio_configuration().subnet_address()));
+    confMessage->setPower0(
+        config_message.primary_radio_configuration().transmission_power());
+    if (config_message.primary_radio_configuration().radio_mode() ==
+        ConfigureWifiRadio_RadioConfiguration_RadioMode_SINGLE_CHANNEL) {
       confMessage->setNumchannels0(1);
-      confMessage->setChannel00(config_message.primary_radio_configuration().primary_radio_channel());
-    } else if (config_message.primary_radio_configuration().radio_mode() == ConfigureWifiRadio_RadioConfiguration_RadioMode_DUAL_CHANNEL) {
+      confMessage->setChannel00(
+          config_message.primary_radio_configuration().primary_radio_channel());
+    } else if (config_message.primary_radio_configuration().radio_mode() ==
+               ConfigureWifiRadio_RadioConfiguration_RadioMode_DUAL_CHANNEL) {
       confMessage->setNumchannels0(2);
-      confMessage->setChannel00(config_message.primary_radio_configuration().primary_radio_channel());
-      confMessage->setChannel01(config_message.primary_radio_configuration().secondary_radio_channel());
+      confMessage->setChannel00(
+          config_message.primary_radio_configuration().primary_radio_channel());
+      confMessage->setChannel01(config_message.primary_radio_configuration()
+                                    .secondary_radio_channel());
     }
   }
-  if (config_message.radio_number() == ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
-    confMessage->setTurnedOn1(config_message.secondary_radio_configuration().receiving_messages());
-    confMessage->setIp1(
-        inet::Ipv4Address(config_message.secondary_radio_configuration().ip_address()));
-    confMessage->setSubnet1(
-        inet::Ipv4Address(config_message.secondary_radio_configuration().subnet_address()));
-    confMessage->setPower1(config_message.secondary_radio_configuration().transmission_power());
-    if (config_message.secondary_radio_configuration().radio_mode() == ConfigureWifiRadio_RadioConfiguration_RadioMode_SINGLE_CHANNEL) {
+  if (config_message.radio_number() ==
+      ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
+    confMessage->setTurnedOn1(
+        config_message.secondary_radio_configuration().receiving_messages());
+    confMessage->setIp1(inet::Ipv4Address(
+        config_message.secondary_radio_configuration().ip_address()));
+    confMessage->setSubnet1(inet::Ipv4Address(
+        config_message.secondary_radio_configuration().subnet_address()));
+    confMessage->setPower1(
+        config_message.secondary_radio_configuration().transmission_power());
+    if (config_message.secondary_radio_configuration().radio_mode() ==
+        ConfigureWifiRadio_RadioConfiguration_RadioMode_SINGLE_CHANNEL) {
       confMessage->setNumchannels1(1);
-      confMessage->setChannel10(config_message.secondary_radio_configuration().primary_radio_channel());
-    } else if (config_message.secondary_radio_configuration().radio_mode() == ConfigureWifiRadio_RadioConfiguration_RadioMode_DUAL_CHANNEL) {
+      confMessage->setChannel10(config_message.secondary_radio_configuration()
+                                    .primary_radio_channel());
+    } else if (config_message.secondary_radio_configuration().radio_mode() ==
+               ConfigureWifiRadio_RadioConfiguration_RadioMode_DUAL_CHANNEL) {
       confMessage->setNumchannels1(2);
-      confMessage->setChannel10(config_message.secondary_radio_configuration().primary_radio_channel());
-      confMessage->setChannel11(
-          config_message.secondary_radio_configuration().secondary_radio_channel());
+      confMessage->setChannel10(config_message.secondary_radio_configuration()
+                                    .primary_radio_channel());
+      confMessage->setChannel11(config_message.secondary_radio_configuration()
+                                    .secondary_radio_channel());
     }
   }
   EV_DEBUG << "MosaicEventScheduler CONF_RADIO: at " << time
@@ -480,7 +524,7 @@ void MosaicEventScheduler::processAdvanceTime() {
 
 void MosaicEventScheduler::receiveInteractions() {
   EV_DEBUG << "MosaicEventScheduler wait new command" << std::endl;
-  CommandMessage_CommandType command = m_ambassadorFederateChannel->readCommand();
+  const auto command = m_ambassadorFederateChannel->readCommand();
   EV_DEBUG << "MosaicEventScheduler received command: " << command << std::endl;
 
   switch (command) {

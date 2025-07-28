@@ -57,8 +57,9 @@ private:
   MosaicEventScheduler *sched;
 
   virtual cModule *getManagedModule(int nodeId);
-  virtual void addModule(int nodeId, std::string type, std::string name,
-                         std::string displayString);
+  virtual void addModule(int nodeId, const std::string &type,
+                         const std::string &name,
+                         const std::string &displayString);
   virtual void addNode(int nodeId, inet::Coord &position);
   virtual void addRsuNode(int nodeId, inet::Coord &position);
   virtual void moveNode(int nodeId, inet::Coord &position);

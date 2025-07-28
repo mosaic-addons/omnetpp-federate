@@ -78,8 +78,9 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
   EV << "handleMessage() - name: " << msg->getName()
      << ", kind: " << msg->getKind() << std::endl;
 
-  if (strcmp(msg->getName(), "MosaicMobilityCmd") == 0) {
-    MosaicMobilityCmd *cmd = check_and_cast<MosaicMobilityCmd *>(msg);
+  const auto msgName = msg->getName();
+  if (msgName == "MosaicMobilityCmd") {
+    auto *cmd = check_and_cast<MosaicMobilityCmd *>(msg);
     EV << "MosaicScenarioManager received command: " << cmd->getCmdType()
        << std::endl;
     if (cmd->getCmdType() == MOBILITY_CMD_ADD_RADIO_VEH_NODE) {
@@ -117,19 +118,19 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
         removeNode(nodeId);
       }
     }
-  } else if (strcmp(msg->getName(), "MosaicCommunicationCmd") == 0) {
-    MosaicCommunicationCmd *cmd = check_and_cast<MosaicCommunicationCmd *>(msg);
+  } else if (msgName == "MosaicCommunicationCmd") {
+    auto *cmd = check_and_cast<MosaicCommunicationCmd *>(msg);
     if (cmd->getCmdType() == COMMUNICATION_CMD_SEND_WIFI_MESSAGE) {
       EV_DEBUG << "MosaicScenarioManager SEND_MESSAGE" << std::endl;
       sendV2xMessage(msg);
     }
-  } else if (strcmp(msg->getName(), "MosaicConfigurationCmd") == 0) {
-    MosaicConfigurationCmd *cmd = check_and_cast<MosaicConfigurationCmd *>(msg);
+  } else if (msgName == "MosaicConfigurationCmd") {
+    auto *cmd = check_and_cast<MosaicConfigurationCmd *>(msg);
     if (cmd->getCmdType() == CONFIGURATION_CMD_CONFIGURE_WIFI_RADIO) {
       EV_DEBUG << "MosaicScenarioManager CONF_RADIO" << std::endl;
       configureRadio(msg);
     }
-  } else if (strcmp(msg->getName(), "MosaicFinishCmd") == 0) {
+  } else if (msgName == "MosaicFinishCmd") {
     EV_DEBUG << "MosaicScenarioManager FINISH" << std::endl;
     delete msg; // Delete msg because finish() terminates the program.
     finish();
@@ -162,30 +163,33 @@ void MosaicScenarioManager::finish() {
 }
 
 cModule *MosaicScenarioManager::getManagedModule(int nodeId) {
-  if (nodes.find(nodeId) == nodes.end()) {
-    return nullptr;
-  }
-  return nodes[nodeId];
+  // Search for the node with the given nodeId in the nodes map
+  auto it = nodes.find(nodeId);
+  // Return the module pointer if found, nullptr otherwise
+  return (it != nodes.end()) ? it->second : nullptr;
 }
 
-void MosaicScenarioManager::addModule(int nodeId, std::string type,
-                                      std::string name,
-                                      std::string displayString) {
-  if (nodes.find(nodeId) != nodes.end()) {
+void MosaicScenarioManager::addModule(int nodeId, const std::string &type,
+                                      const std::string &name,
+                                      const std::string &displayString) {
+  // Check if the nodeId already exists in the nodes map
+  // If it does, throw an error to prevent duplicate module creation
+  const auto [it, inserted] = nodes.try_emplace(nodeId, nullptr);
+  if (!inserted) {
     error("Tried adding duplicate module");
   }
 
-  cModule *parentmod = getParentModule();
+  auto *parentmod = getParentModule();
   if (!parentmod) {
     error("Parent module not found");
   }
 
-  cModuleType *nodeType = cModuleType::get(type.c_str());
+  auto *nodeType = cModuleType::get(type.c_str());
   if (!nodeType) {
     error("Module type \"%s\" not found", type.c_str());
   }
 
-  unsigned int nodeVectorIndex = nodeId;
+  const auto nodeVectorIndex = static_cast<unsigned int>(nodeId);
 
   // OMNeT++ 6.x: Ensure submodule vector exists before creating modules
   if (!parentmod->hasSubmoduleVector(name.c_str())) {
@@ -203,12 +207,12 @@ void MosaicScenarioManager::addModule(int nodeId, std::string type,
   EV << "Creating module of type \"" << type << "\" with name \"" << name
      << "\" at index " << nodeVectorIndex << " in parent module \""
      << parentmod->getFullName() << "\"" << std::endl;
-  cModule *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex);
+  auto *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex);
   mod->finalizeParameters();
   mod->getDisplayString().parse(displayString.c_str());
   mod->buildInside();
   mod->scheduleStart(simTime());
-  nodes[nodeId] = mod;
+  it->second = mod;
 }
 
 void MosaicScenarioManager::addNode(int nodeId, inet::Coord &position) {
@@ -223,7 +227,7 @@ void MosaicScenarioManager::addNode(int nodeId, inet::Coord &position) {
   MosaicProxyApp *app;
   MosaicMobility *mobility;
 
-  cModule *submod = newNode->getSubmodule("proxyApp");
+  auto *submod = newNode->getSubmodule("proxyApp");
   if ((app = dynamic_cast<MosaicProxyApp *>(submod))) {
     this->setGateSize("mosaicProxyOut", this->gateSize("mosaicProxyOut") + 1);
     this->gate("mosaicProxyOut", nodeId)->connectTo(app->gate("fedIn"));
@@ -257,7 +261,7 @@ void MosaicScenarioManager::addRsuNode(int nodeId, inet::Coord &position) {
   MosaicProxyApp *app;
   MosaicMobility *mobility;
 
-  cModule *submod = newNode->getSubmodule("proxyApp");
+  auto *submod = newNode->getSubmodule("proxyApp");
 
   if ((app = dynamic_cast<MosaicProxyApp *>(submod))) {
     // Initialize mosaicproxyapp module (external id and connection to fed)
@@ -284,13 +288,13 @@ void MosaicScenarioManager::addRsuNode(int nodeId, inet::Coord &position) {
 
 void MosaicScenarioManager::moveNode(int nodeId, inet::Coord &position) {
   cModule *mod = getManagedModule(nodeId);
-  if (!mod) {
+  if (mod == nullptr) {
     EV_WARN << "WARNING: Node " << nodeId << " not mapped" << std::endl;
   } else {
     for (cModule::SubmoduleIterator iter(mod); !iter.end(); iter++) {
-      cModule *submod = *iter;
-      MosaicMobility *mm = dynamic_cast<MosaicMobility *>(submod);
-      if (!mm) {
+      auto *submod = *iter;
+      auto *mm = dynamic_cast<MosaicMobility *>(submod);
+      if (mm == nullptr) {
         continue;
       }
       mm->setNextPosition(position);
@@ -303,7 +307,7 @@ void MosaicScenarioManager::moveNode(int nodeId, inet::Coord &position) {
 
 void MosaicScenarioManager::removeNode(int nodeId) {
   cModule *mod = getManagedModule(nodeId);
-  if (!mod) {
+  if (mod == nullptr) {
     error("No node with id %d found", nodeId);
   } else {
     nodes.erase(nodeId);
@@ -311,11 +315,11 @@ void MosaicScenarioManager::removeNode(int nodeId) {
     // we have to delete the two radios before we delete the node, since the
     // MediumLimitCache tries to determine the minimal constrained area from the
     // nonexistent mobility while deleting the radios.
-    cModule *wlan0Module = mod->getSubmodule("wlan0");
+    auto *wlan0Module = mod->getSubmodule("wlan0");
     if (wlan0Module != nullptr) {
       wlan0Module->deleteModule();
     }
-    cModule *wlan1Module = mod->getSubmodule("wlan1");
+    auto *wlan1Module = mod->getSubmodule("wlan1");
     if (wlan1Module != nullptr) {
       wlan1Module->deleteModule();
     }
@@ -330,29 +334,27 @@ void MosaicScenarioManager::sendV2xMessage(cMessage *msg) {
   auto *cmd = check_and_cast<MosaicCommunicationCmd *>(msg);
   int nodeId = cmd->getNodeId();
   cModule *mod = getManagedModule(nodeId);
-  if (!mod) {
+  if (mod == nullptr) {
     EV << "WARNING: Node " << nodeId << " not mapped" << std::endl;
   } else {
     if (cmd->getTtl() != 1) {
       EV << "WARNING: up to now only singlehop-broadcast supported"
          << std::endl;
     } else {
-      int msgId = cmd->getMsgId();
-      char packetName[32];
-      sprintf(packetName, "V2xPacket-%d", msgId);
-      auto *packet = new MosaicAppPacket(packetName);
+      const auto msgId = cmd->getMsgId();
+      const auto packetName = "V2xPacket" + std::to_string(msgId);
+      auto *packet = new MosaicAppPacket(packetName.c_str());
       packet->setNodeId(nodeId);
       packet->setMsgId(msgId);
       packet->setDestAddr(cmd->getDestAddr());
       packet->setChannelId(cmd->getChannelId());
 
-      auto chunk = inet::makeShared<inet::ByteCountChunk>(cmd->getLength());
+      const auto chunk = inet::makeShared<inet::ByteCountChunk>(cmd->getLength());
       packet->insertAtFront(chunk);
 
-      send(packet->dup(), "mosaicProxyOut", nodeId);
+      send(packet, "mosaicProxyOut", nodeId);
       EV << "MosaicScenarioManager send udp message " << msgId << " from node "
          << nodeId << " at time " << simTime() << std::endl;
-      delete packet;
     }
   }
 }
@@ -372,7 +374,7 @@ void MosaicScenarioManager::configureRadio(cMessage *msg) {
   }
   int nodeId = cmd->getNodeId();
   cModule *mod = getManagedModule(nodeId);
-  if (!mod) {
+  if (mod == nullptr) {
     EV_WARN << "WARNING: Node " << nodeId << " not mapped" << std::endl;
   } else {
     send(msg->dup(), "mosaicProxyOut", nodeId);
