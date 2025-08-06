@@ -28,6 +28,7 @@
 
 #include "util/ClientServerChannel.h"
 #include "msg/MosaicMobilityCmd_m.h"
+#include "ConfigurationHelper.h"
 
 namespace omnetpp_federate {
 using namespace omnetpp;
@@ -76,6 +77,8 @@ private:
   void processRemoveNode();
   void processSendWifiMsg();
   void processConfWifiRadio();
+  void processSendCellMsg();
+  void processConfCellRadio();
   void processAdvanceTime();
 };
 

@@ -397,120 +397,96 @@ void MosaicEventScheduler::processRemoveNode() {
 
 void MosaicEventScheduler::processSendWifiMsg() {
   const auto send_message = m_ambassadorFederateChannel->readSendWifiMessage();
-  simtime_t time(send_message.time(), SimTimeUnit::SIMTIME_NS);
+  const simtime_t time(send_message.time(), SimTimeUnit::SIMTIME_NS);
 
   EV_DEBUG << "MosaicEventScheduler.processSendWifiMsg() received time: "
            << time.str() << endl;
 
-  auto *comMessage = new MosaicCommunicationCmd("MosaicCommunicationCmd");
-  comMessage->setCmdType(COMMUNICATION_CMD_SEND_WIFI_MESSAGE);
-  comMessage->setTimestamp(time);
-  comMessage->setArrivalTime(time);
-  comMessage->setArrival(mgmt->getId(), -1);
-  comMessage->setNodeId(send_message.node_id());
-  comMessage->setChannelId(send_message.channel_id());
-  comMessage->setMsgId(send_message.message_id());
-  comMessage->setLength((inet::B)send_message.length());
-
-  // For now only Topo-unicast
-  comMessage->setDestAddr(
-      inet::Ipv4Address(send_message.topological_address().ip_address()));
-  comMessage->setTtl(send_message.topological_address().ttl());
+  // Create communication command using helper
+  auto comMessage =
+      ConfigurationHelper::createWifiCommunicationCommand(send_message, time);
 
   EV_DEBUG << "MosaicEventScheduler SEND_MESSAGE: from="
            << comMessage->getNodeId()
            << ", destAddress: " << comMessage->getDestAddr()
            << ", id=" << comMessage->getMsgId() << ", prot=udp" << std::endl;
 
-  putBackEvent(comMessage);
+  comMessage->setArrival(mgmt->getId(), -1);
+  putBackEvent(comMessage.release());
 
+  EV_DEBUG << "MosaicEventScheduler finished processing SEND_WIFI_MSG" << endl;
   m_ambassadorFederateChannel->writeCommand(CommandMessage_CommandType_SUCCESS);
-  EV_DEBUG << "MosaicEventScheduler finished processing of command"
-           << std::endl;
 }
 
 void MosaicEventScheduler::processConfWifiRadio() {
   const auto config_message =
       m_ambassadorFederateChannel->readConfigureWifiRadio();
-  simtime_t time(config_message.time(), SimTimeUnit::SIMTIME_NS);
+  const simtime_t time(config_message.time(), SimTimeUnit::SIMTIME_NS);
 
-  EV_DEBUG << "MosaicEventScheduler received time: " << time.str() << endl;
+  EV_DEBUG << "MosaicEventScheduler received CONF_WIFI_RADIO command: "
+           << time.str() << endl;
 
-  auto *confMessage = new MosaicConfigurationCmd("MosaicConfigurationCmd");
-  confMessage->setCmdType(CONFIGURATION_CMD_CONFIGURE_WIFI_RADIO);
-  confMessage->setTimestamp(time);
-  confMessage->setArrivalTime(time);
-  confMessage->setArrival(mgmt->getId(), -1);
-  confMessage->setMsgId(config_message.message_id());
-  confMessage->setNodeId(config_message.node_id());
-  if (config_message.radio_number() ==
-      ConfigureWifiRadio_RadioNumber_SINGLE_RADIO) {
-    confMessage->setNumRadios(1);
-  } else if (config_message.radio_number() ==
-             ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
-    confMessage->setNumRadios(2);
-  } else if (config_message.radio_number() ==
-             ConfigureWifiRadio_RadioNumber_NO_RADIO) {
-    confMessage->setNumRadios(0);
-  }
-  if (config_message.radio_number() ==
-          ConfigureWifiRadio_RadioNumber_SINGLE_RADIO ||
-      config_message.radio_number() ==
-          ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
-    confMessage->setTurnedOn0(
-        config_message.primary_radio_configuration().receiving_messages());
-    confMessage->setIp0(inet::Ipv4Address(
-        config_message.primary_radio_configuration().ip_address()));
-    confMessage->setSubnet0(inet::Ipv4Address(
-        config_message.primary_radio_configuration().subnet_address()));
-    confMessage->setPower0(
-        config_message.primary_radio_configuration().transmission_power());
-    if (config_message.primary_radio_configuration().radio_mode() ==
-        ConfigureWifiRadio_RadioConfiguration_RadioMode_SINGLE_CHANNEL) {
-      confMessage->setNumchannels0(1);
-      confMessage->setChannel00(
-          config_message.primary_radio_configuration().primary_radio_channel());
-    } else if (config_message.primary_radio_configuration().radio_mode() ==
-               ConfigureWifiRadio_RadioConfiguration_RadioMode_DUAL_CHANNEL) {
-      confMessage->setNumchannels0(2);
-      confMessage->setChannel00(
-          config_message.primary_radio_configuration().primary_radio_channel());
-      confMessage->setChannel01(config_message.primary_radio_configuration()
-                                    .secondary_radio_channel());
-    }
-  }
-  if (config_message.radio_number() ==
-      ConfigureWifiRadio_RadioNumber_DUAL_RADIO) {
-    confMessage->setTurnedOn1(
-        config_message.secondary_radio_configuration().receiving_messages());
-    confMessage->setIp1(inet::Ipv4Address(
-        config_message.secondary_radio_configuration().ip_address()));
-    confMessage->setSubnet1(inet::Ipv4Address(
-        config_message.secondary_radio_configuration().subnet_address()));
-    confMessage->setPower1(
-        config_message.secondary_radio_configuration().transmission_power());
-    if (config_message.secondary_radio_configuration().radio_mode() ==
-        ConfigureWifiRadio_RadioConfiguration_RadioMode_SINGLE_CHANNEL) {
-      confMessage->setNumchannels1(1);
-      confMessage->setChannel10(config_message.secondary_radio_configuration()
-                                    .primary_radio_channel());
-    } else if (config_message.secondary_radio_configuration().radio_mode() ==
-               ConfigureWifiRadio_RadioConfiguration_RadioMode_DUAL_CHANNEL) {
-      confMessage->setNumchannels1(2);
-      confMessage->setChannel10(config_message.secondary_radio_configuration()
-                                    .primary_radio_channel());
-      confMessage->setChannel11(config_message.secondary_radio_configuration()
-                                    .secondary_radio_channel());
-    }
-  }
+  // Create configuration command using modern helper
+  auto confMessage =
+      ConfigurationHelper::createWifiConfigurationCommand(config_message, time);
+
   EV_DEBUG << "MosaicEventScheduler CONF_RADIO: at " << time
            << " from=" << confMessage->getNodeId()
            << ", id=" << confMessage->getMsgId() << std::endl;
 
-  putBackEvent(confMessage);
+  confMessage->setArrival(mgmt->getId(), -1);
+  putBackEvent(confMessage.release());
 
-  EV_DEBUG << "MosaicEventScheduler finished processing of command"
+  EV_DEBUG << "MosaicEventScheduler finished processing CONF_WIFI_RADIO"
+           << endl;
+  m_ambassadorFederateChannel->writeCommand(CommandMessage_CommandType_SUCCESS);
+}
+
+void MosaicEventScheduler::processSendCellMsg() {
+  const auto send_message = m_ambassadorFederateChannel->readSendCellMessage();
+  const simtime_t time(send_message.time(), SimTimeUnit::SIMTIME_NS);
+
+  EV_DEBUG << "MosaicEventScheduler.processSendCellMsg() received time: "
+           << time.str() << endl;
+
+  // Create communication command using helper
+  auto comMessage = ConfigurationHelper::createCellularCommunicationCommand(
+      send_message, time);
+
+  EV_DEBUG << "MosaicEventScheduler SEND_CELL_MESSAGE: from="
+           << comMessage->getNodeId()
+           << ", destAddress: " << comMessage->getDestAddr()
+           << ", id=" << comMessage->getMsgId() << ", prot=cellular"
            << std::endl;
+
+  comMessage->setArrival(mgmt->getId(), -1);
+  putBackEvent(comMessage.release());
+
+  EV_DEBUG << "MosaicEventScheduler finished processing SEND_CELL_MSG" << endl;
+  m_ambassadorFederateChannel->writeCommand(CommandMessage_CommandType_SUCCESS);
+}
+
+void MosaicEventScheduler::processConfCellRadio() {
+  const auto config_message =
+      m_ambassadorFederateChannel->readConfigureCellRadio();
+  const simtime_t time(config_message.time(), SimTimeUnit::SIMTIME_NS);
+
+  EV_DEBUG << "MosaicEventScheduler received CONF_CELL_RADIO command: "
+           << time.str() << endl;
+
+  // Create configuration command using modern helper
+  auto confMessage = ConfigurationHelper::createCellularConfigurationCommand(
+      config_message, time);
+
+  EV_DEBUG << "MosaicEventScheduler CONF_CELL_RADIO: at " << time
+           << " from=" << confMessage->getNodeId()
+           << ", id=" << confMessage->getMsgId() << std::endl;
+
+  confMessage->setArrival(mgmt->getId(), -1);
+  putBackEvent(confMessage.release());
+
+  EV_DEBUG << "MosaicEventScheduler finished processing CONF_CELL_RADIO"
+           << endl;
   m_ambassadorFederateChannel->writeCommand(CommandMessage_CommandType_SUCCESS);
 }
 
@@ -545,6 +521,12 @@ void MosaicEventScheduler::receiveInteractions() {
     break;
   case CommandMessage_CommandType_CONF_WIFI_RADIO:
     processConfWifiRadio();
+    break;
+  case CommandMessage_CommandType_SEND_CELL_MSG:
+    processSendCellMsg();
+    break;
+  case CommandMessage_CommandType_CONF_CELL_RADIO:
+    processConfCellRadio();
     break;
   case CommandMessage_CommandType_ADVANCE_TIME:
     processAdvanceTime();
