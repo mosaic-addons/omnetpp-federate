@@ -50,6 +50,8 @@ private:
   std::string vehModuleName;
   std::string rsuModuleType;
   std::string rsuModuleName;
+  std::string nodeBModuleType;
+  std::string nodeBModuleName;
   std::string moduleDisplayString;
   inet::Ipv4Address addressBase;
   inet::Ipv4Address netmask;
@@ -62,6 +64,7 @@ private:
                          const std::string &displayString);
   virtual void addNode(int nodeId, inet::Coord &position);
   virtual void addRsuNode(int nodeId, inet::Coord &position);
+  virtual void addNodeB(int nodeId, inet::Coord &position);
   virtual void moveNode(int nodeId, inet::Coord &position);
   virtual void removeNode(int nodeId);
   virtual void sendV2xMessage(cMessage *msg);

@@ -41,12 +41,13 @@ namespace omnetpp_federate;
 
 enum CommunicationCommandType {
     COMMUNICATION_CMD_SEND_WIFI_MESSAGE = 1;
+    COMMUNICATION_CMD_SEND_CELL_MESSAGE = 2;
 };
 
 class MosaicCommunicationCmd extends inet::Request {
     int nodeId;
     int channelId; // WLAN channel id
-    int	msgId;
+    int msgId;
     inet::B length; // Length of v2x messages payload
     int ttl; // Time-To-Live for topological sending (or geographical if < 0)
     inet::Ipv4Address destAddr;

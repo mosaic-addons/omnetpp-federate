@@ -24,6 +24,6 @@ package omnetpp_federate.node;
 
 import omnetpp_federate.node.MosaicNode;
 
-module Rsu extends MosaicNode {
+module Rsu extends MosaicHybridNode {
 	// nop
 }

@@ -37,6 +37,10 @@
 #include "node/MosaicMobility.h"
 #include "node/MosaicProxyApp.h"
 
+// Simu5G includes for debugging binder registration
+#include "common/binder/Binder.h"
+#include "common/LteCommon.h"
+
 namespace omnetpp_federate {
 using namespace omnetpp;
 
@@ -50,6 +54,8 @@ void MosaicScenarioManager::initialize() {
   vehModuleName = par("vehModuleName").stdstringValue();
   rsuModuleType = par("rsuModuleType").stdstringValue();
   rsuModuleName = par("rsuModuleName").stdstringValue();
+  nodeBModuleType = par("nodeBModuleType").stdstringValue();
+  nodeBModuleName = par("nodeBModuleName").stdstringValue();
   moduleDisplayString = par("moduleDisplayString").stdstringValue();
 
   sched = dynamic_cast<MosaicEventScheduler *>(
@@ -78,9 +84,9 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
   EV << "handleMessage() - name: " << msg->getName()
      << ", kind: " << msg->getKind() << std::endl;
 
-  const auto msgName = msg->getName();
+  const std::string_view msgName = msg->getName();
   if (msgName == "MosaicMobilityCmd") {
-    auto *cmd = check_and_cast<MosaicMobilityCmd *>(msg);
+    auto cmd = check_and_cast<MosaicMobilityCmd *>(msg);
     EV << "MosaicScenarioManager received command: " << cmd->getCmdType()
        << std::endl;
     if (cmd->getCmdType() == MOBILITY_CMD_ADD_RADIO_VEH_NODE) {
@@ -100,6 +106,14 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
                  << " at position " << position.x << "," << position.y
                  << std::endl;
         addRsuNode(nodeId, position);
+      }
+    } else if (cmd->getCmdType() == MOBILITY_CMD_ADD_NODE_B) {
+      for (unsigned int i = 0; i < cmd->getNodeIdArraySize(); i++) {
+        nodeId = cmd->getNodeId(i);
+        position = cmd->getPosition(i);
+        EV << "MosaicScenarioManager ADD_NODE_B: " << nodeId << " at position "
+           << position.x << "," << position.y << std::endl;
+        addNodeB(nodeId, position);
       }
     } else if (cmd->getCmdType() == MOBILITY_CMD_MOVE_NODES) {
       for (unsigned int i = 0; i < cmd->getNodeIdArraySize(); i++) {
@@ -124,12 +138,14 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
       EV_DEBUG << "MosaicScenarioManager SEND_MESSAGE" << std::endl;
       sendV2xMessage(msg);
     }
-  } else if (msgName == "MosaicConfigurationCmd") {
-    auto *cmd = check_and_cast<MosaicConfigurationCmd *>(msg);
-    if (cmd->getCmdType() == CONFIGURATION_CMD_CONFIGURE_WIFI_RADIO) {
-      EV_DEBUG << "MosaicScenarioManager CONF_RADIO" << std::endl;
-      configureRadio(msg);
-    }
+  } else if (msgName == "MosaicWifiConfigurationCmd") {
+    auto *cmd = check_and_cast<MosaicWifiConfigurationCmd *>(msg);
+    EV_DEBUG << "MosaicScenarioManager WIFI_CONF_RADIO" << std::endl;
+    configureRadio(msg);
+  } else if (msgName == "MosaicCellularConfigurationCmd") {
+    auto *cmd = check_and_cast<MosaicCellularConfigurationCmd *>(msg);
+    EV_DEBUG << "MosaicScenarioManager CELLULAR_CONF_RADIO" << std::endl;
+    configureRadio(msg);
   } else if (msgName == "MosaicFinishCmd") {
     EV_DEBUG << "MosaicScenarioManager FINISH" << std::endl;
     delete msg; // Delete msg because finish() terminates the program.
@@ -189,16 +205,17 @@ void MosaicScenarioManager::addModule(int nodeId, const std::string &type,
     error("Module type \"%s\" not found", type.c_str());
   }
 
-  const auto nodeVectorIndex = static_cast<unsigned int>(nodeId);
+  unsigned int nodeVectorIndex;
 
   // OMNeT++ 6.x: Ensure submodule vector exists before creating modules
   if (!parentmod->hasSubmoduleVector(name.c_str())) {
     // Add submodule vector with initial size to accommodate this node
-    parentmod->addSubmoduleVector(name.c_str(), nodeVectorIndex + 1);
-    EV << "Added submodule vector \"" << name << "\" with size "
-       << (nodeVectorIndex + 1) << std::endl;
-  } else if (parentmod->getSubmoduleVectorSize(name.c_str()) <=
-             nodeVectorIndex) {
+    parentmod->addSubmoduleVector(name.c_str(), 1);
+    EV << "Added submodule vector \"" << name << "\" with size " << (1)
+       << std::endl;
+    nodeVectorIndex = 0; // Reset index to 0 for new vector
+  } else {
+    nodeVectorIndex = parentmod->getSubmoduleVectorSize(name.c_str());
     // Expand existing vector if needed
     parentmod->setSubmoduleVectorSize(name.c_str(), nodeVectorIndex + 1);
     EV << "Expanded submodule vector \"" << name << "\" to size "
@@ -208,10 +225,20 @@ void MosaicScenarioManager::addModule(int nodeId, const std::string &type,
      << "\" at index " << nodeVectorIndex << " in parent module \""
      << parentmod->getFullName() << "\"" << std::endl;
   auto *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex);
+
+  // For gNodeB modules, we need to create a custom instance that uses
+  // MosaicMobility Since the gNodeB hardcodes StationaryMobility, we'll handle
+  // this in addNodeB method
+
   mod->finalizeParameters();
   mod->getDisplayString().parse(displayString.c_str());
   mod->buildInside();
-  mod->scheduleStart(simTime());
+
+  // For gNodeB, don't schedule start yet - we need to replace mobility first
+  if (type != nodeBModuleType) {
+    mod->scheduleStart(simTime());
+  }
+
   it->second = mod;
 }
 
@@ -229,9 +256,14 @@ void MosaicScenarioManager::addNode(int nodeId, inet::Coord &position) {
 
   auto *submod = newNode->getSubmodule("proxyApp");
   if ((app = dynamic_cast<MosaicProxyApp *>(submod))) {
-    this->setGateSize("mosaicProxyOut", this->gateSize("mosaicProxyOut") + 1);
+    // Ensure gate vector is large enough for nodeId
+    if (this->gateSize("mosaicProxyOut") <= nodeId) {
+      this->setGateSize("mosaicProxyOut", nodeId + 1);
+    }
+    if (this->gateSize("mosaicProxyIn") <= nodeId) {
+      this->setGateSize("mosaicProxyIn", nodeId + 1);
+    }
     this->gate("mosaicProxyOut", nodeId)->connectTo(app->gate("fedIn"));
-    this->setGateSize("mosaicProxyIn", this->gateSize("mosaicProxyIn") + 1);
     app->gate("fedOut")->connectTo(this->gate("mosaicProxyIn", nodeId));
     app->setExternalId(nodeId);
   }
@@ -267,9 +299,14 @@ void MosaicScenarioManager::addRsuNode(int nodeId, inet::Coord &position) {
     // Initialize mosaicproxyapp module (external id and connection to fed)
     EV << "MosaicScenarioManager adding rsu node " << nodeId << " with proxyApp"
        << std::endl;
-    this->setGateSize("mosaicProxyOut", this->gateSize("mosaicProxyOut") + 1);
+    // Ensure gate vector is large enough for nodeId
+    if (this->gateSize("mosaicProxyOut") <= nodeId) {
+      this->setGateSize("mosaicProxyOut", nodeId + 1);
+    }
+    if (this->gateSize("mosaicProxyIn") <= nodeId) {
+      this->setGateSize("mosaicProxyIn", nodeId + 1);
+    }
     this->gate("mosaicProxyOut", nodeId)->connectTo(app->gate("fedIn"));
-    this->setGateSize("mosaicProxyIn", this->gateSize("mosaicProxyIn") + 1);
     app->gate("fedOut")->connectTo(this->gate("mosaicProxyIn", nodeId));
     app->setExternalId(nodeId);
   }
@@ -284,6 +321,57 @@ void MosaicScenarioManager::addRsuNode(int nodeId, inet::Coord &position) {
   EV_DEBUG << "MosaicScenarioManager added rsu " << nodeId << " at position "
            << position.x << "," << position.y << " at time " << simTime()
            << std::endl;
+}
+
+void MosaicScenarioManager::addNodeB(int nodeId, inet::Coord &position) {
+  cModule *newNode = getManagedModule(nodeId);
+  if (newNode) {
+    error("Tried adding duplicate node (nodeB) %d", nodeId);
+  }
+
+  addModule(nodeId, nodeBModuleType, nodeBModuleName, moduleDisplayString);
+  newNode = getManagedModule(nodeId);
+
+  // Set display string with coordinates so ChannelAccess can find them as
+  // fallback
+  std::string displayStr = moduleDisplayString +
+                           ";p=" + std::to_string((int)position.x) + "," +
+                           std::to_string((int)position.y);
+  newNode->getDisplayString().parse(displayStr.c_str());
+
+  // Replace the hardcoded StationaryMobility with MosaicMobility
+  auto *oldMobility = newNode->getSubmodule("mobility");
+  if (oldMobility) {
+    // Delete the existing StationaryMobility module
+    oldMobility->deleteModule();
+
+    // Create a new MosaicMobility module
+    auto *mobilityType =
+        cModuleType::get("omnetpp_federate.node.MosaicMobility");
+    if (mobilityType) {
+      auto *newMobility = mobilityType->create("mobility", newNode);
+      newMobility->finalizeParameters();
+      newMobility->buildInside();
+
+      // Set position and ID after building (parameters are now accessible)
+      auto *mobility = dynamic_cast<MosaicMobility *>(newMobility);
+      if (mobility) {
+        mobility->setExternalId(nodeId);
+        mobility->setNextPosition(position); // This sets the position properly
+
+        EV << "MosaicMobility created for nodeB " << nodeId << " at position "
+           << position.x << "," << position.y << std::endl;
+      }
+    }
+  }
+
+  // Now schedule start for the gNodeB module after mobility is ready
+  newNode->scheduleStart(simTime());
+  newNode->callInitialize();
+
+  EV << "MosaicScenarioManager added nodeB " << nodeId << " at position "
+     << position.x << "," << position.y << " at time " << simTime()
+     << std::endl;
 }
 
 void MosaicScenarioManager::moveNode(int nodeId, inet::Coord &position) {
@@ -310,6 +398,10 @@ void MosaicScenarioManager::removeNode(int nodeId) {
   if (mod == nullptr) {
     error("No node with id %d found", nodeId);
   } else {
+    EV << "MosaicScenarioManager removing node " << nodeId
+       << " (OMNeT++ ID: " << mod->getId() << ") at time " << simTime()
+       << std::endl;
+
     nodes.erase(nodeId);
     mod->callFinish();
     // we have to delete the two radios before we delete the node, since the
@@ -322,6 +414,35 @@ void MosaicScenarioManager::removeNode(int nodeId) {
     auto *wlan1Module = mod->getSubmodule("wlan1");
     if (wlan1Module != nullptr) {
       wlan1Module->deleteModule();
+    }
+
+    // Check if this node has a cellular NIC and what its binder registration
+    // status is
+    auto *cellularModule = mod->getSubmodule("cellularNic");
+    if (cellularModule != nullptr) {
+      auto *ip2nicModule = cellularModule->getSubmodule("ip2nic");
+      if (ip2nicModule != nullptr) {
+        EV << "Node " << nodeId << " has cellular NIC with IP2Nic module"
+           << std::endl;
+        // Try to get binder and check registration
+        try {
+          auto *binder =
+              dynamic_cast<simu5g::Binder *>(getModuleByPath("binder"));
+          if (binder != nullptr) {
+            simu5g::MacNodeId macNodeId =
+                binder->getMacNodeIdFromOmnetId(mod->getId());
+            EV << "Node " << nodeId << " cellular MacNodeId: " << macNodeId
+               << std::endl;
+          }
+        } catch (...) {
+          EV << "Could not retrieve MacNodeId for node " << nodeId << std::endl;
+        }
+      }
+    }
+    // Also handle the cellular NIC explicitly
+    auto *e = mod->getSubmodule("cellularNic");
+    if (e != nullptr) {
+      e->deleteModule();
     }
     mod->deleteModule();
 
@@ -349,7 +470,8 @@ void MosaicScenarioManager::sendV2xMessage(cMessage *msg) {
       packet->setDestAddr(cmd->getDestAddr());
       packet->setChannelId(cmd->getChannelId());
 
-      const auto chunk = inet::makeShared<inet::ByteCountChunk>(cmd->getLength());
+      const auto chunk =
+          inet::makeShared<inet::ByteCountChunk>(cmd->getLength());
       packet->insertAtFront(chunk);
 
       send(packet, "mosaicProxyOut", nodeId);

@@ -31,34 +31,47 @@ cplusplus {{
 
 namespace omnetpp_federate;
 
-enum ConfigurationCommandType {
-    CONFIGURATION_CMD_CONFIGURE_WIFI_RADIO = 1;
-};
-
 //
-// Messagetype for configuration command
+// Base configuration command message
+// Extended by specific radio technology configuration commands
 //
 class MosaicConfigurationCmd extends inet::Request {
     int msgId;
     int nodeId;
-    int numRadios; // number of radios
-    ConfigurationCommandType cmdType;
+}
+
+//
+// WiFi radio configuration command message
+// Contains all parameters needed for WiFi radio setup including dual radio support
+//
+class MosaicWifiConfigurationCmd extends MosaicConfigurationCmd {
+    // Number of WiFi radios (0, 1, or 2)
+    int numRadios = 0;
     
-    //Configuration for radio 0
-    bool turnedOn0;
+    // Primary radio (radio 0) configuration
+    bool turnedOn0 = false;
     inet::Ipv4Address ip0;
     inet::Ipv4Address subnet0;
-    double power0;
-    int numchannels0;
-    int channel00;
-    int	channel01;
+    double power0 = 0.0;
+    int numchannels0 = 0;
+    int channel00 = -1; // -1 indicates unset
+    int channel01 = -1;
     
-    //Configuration for radio 1
-    bool turnedOn1;
+    // Secondary radio (radio 1) configuration for dual radio setups
+    bool turnedOn1 = false;
     inet::Ipv4Address ip1;
     inet::Ipv4Address subnet1;
-    double power1;
-    int	numchannels1;
-    int channel10;
-    int	channel11;
+    double power1 = 0.0;
+    int numchannels1 = 0;
+    int channel10 = -1;
+    int channel11 = -1;
+}
+
+//
+// Cellular radio configuration command message
+// Contains all parameters needed for cellular radio setup
+//
+class MosaicCellularConfigurationCmd extends MosaicConfigurationCmd {
+    inet::Ipv4Address ip;
+    inet::Ipv4Address subnet;
 }

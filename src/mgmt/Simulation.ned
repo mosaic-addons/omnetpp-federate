@@ -31,6 +31,12 @@ import omnetpp_federate.mgmt.MosaicScenarioManager;
 import omnetpp_federate.node.Rsu;
 import omnetpp_federate.node.Vehicle;
 
+// Simu5G imports for 5G infrastructure
+import simu5g.nodes.NR.gNodeB;
+import simu5g.world.radio.LteChannelControl;
+import simu5g.common.binder.Binder;
+import simu5g.common.carrierAggregation.CarrierAggregation;
+
 //
 // Simulation setup for MOSAIC controlled simulation.
 //
@@ -42,6 +48,25 @@ network Simulation {
             parameters:
                 @display("p=60,50");
         }
+
+        // 5G NR Channel Control
+        channelControl: LteChannelControl {
+            parameters:
+                @display("p=60,100;is=s");
+        }
+
+        // 5G Binder (global coordination module)
+        binder: Binder {
+            parameters:
+                @display("p=60,150;is=s");
+        }
+
+        // 5G Carrier Aggregation (carrier frequency management)
+        carrierAggregation: CarrierAggregation {
+            parameters:
+                @display("p=60,200;is=s");
+        }
+
         mgmt: MosaicScenarioManager {
             parameters:
                 @display("p=57,137;is=s");

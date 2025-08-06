@@ -55,6 +55,8 @@ public:
   void sendPacket(omnetpp::cMessage *msg);
   void receivePacket(omnetpp::cMessage *msg);
   virtual void handleConfiguration(MosaicConfigurationCmd *cmd);
+  virtual void handleWifiConfiguration(MosaicWifiConfigurationCmd *cmd);
+  virtual void handleCellularConfiguration(MosaicCellularConfigurationCmd *cmd);
   void connectRadios(int number);
   virtual void handleMessageWhenUp(omnetpp::cMessage *msg);
 
@@ -76,6 +78,9 @@ private:
   inet::NetworkInterface *ie1 = nullptr;
   int radio0Channel;
   int radio1Channel;
+
+  // Cellular NIC management
+  inet::NetworkInterface *cellularIe = nullptr;
 
 protected:
   virtual void handleStartOperation(inet::LifecycleOperation *operation) {

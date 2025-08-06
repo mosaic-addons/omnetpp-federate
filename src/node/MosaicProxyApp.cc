@@ -79,6 +79,10 @@ void MosaicProxyApp::initialize(int stage) {
             ie0 = tmpIe;
           } else if (!strncmp(tmpIe->getFullName(), "wlan1", 6)) {
             ie1 = tmpIe;
+          } else if (!strncmp(tmpIe->getFullName(), "cellularNic", 11)) {
+            cellularIe = tmpIe;
+            EV << "Found cellular interface: " << tmpIe->getFullName()
+               << std::endl;
           }
         }
       }
@@ -184,13 +188,14 @@ void MosaicProxyApp::receivePacket(omnetpp::cMessage *msg) {
 }
 
 /**
- * This method handles configuration messages.
+ * This method handles WiFi configuration messages.
  * If the number of radios is 0, no radio will be used
  */
-void MosaicProxyApp::handleConfiguration(MosaicConfigurationCmd *cmd) {
+void MosaicProxyApp::handleWifiConfiguration(MosaicWifiConfigurationCmd *cmd) {
   // channels are not alternatingly scheduled
   // For now we ignore georouting, so an interface is either there and fully
   // configured or removed
+
   if (cmd->getNumRadios() == 0) { // Disconnect radios from medium
     connectRadios(0);
     radio0Channel = -1;
@@ -278,6 +283,35 @@ void MosaicProxyApp::handleConfiguration(MosaicConfigurationCmd *cmd) {
 }
 
 /**
+ * This method handles cellular configuration messages.
+ */
+void MosaicProxyApp::handleCellularConfiguration(
+    MosaicCellularConfigurationCmd *cmd) {
+  // Configure IP addresses if cellular interface exists
+  if (cellularIe != nullptr) {
+    cellularIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()
+        ->setIPAddress(cmd->getIp());
+    cellularIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
+        cmd->getSubnet());
+    cellularIe->setBroadcast(true);
+
+    EV << "Configured cellular interface IP: " << cmd->getIp()
+       << " subnet: " << cmd->getSubnet() << std::endl;
+  }
+}
+
+/**
+ * Base configuration handler - for backward compatibility or unknown types
+ */
+void MosaicProxyApp::handleConfiguration(MosaicConfigurationCmd *cmd) {
+  // This method can be used for any base configuration logic
+  // or as a fallback for unknown configuration types
+  EV_WARN << "Received base MosaicConfigurationCmd - specific handler should "
+             "be used"
+          << std::endl;
+}
+
+/**
  * Sets the mode of the radios
  * 0 - no radio will be turned on
  * 1 - the first (wlan0) interfaces radio will be turned on
@@ -321,9 +355,13 @@ void MosaicProxyApp::connectRadios(int number) {
 void MosaicProxyApp::handleMessageWhenUp(omnetpp::cMessage *msg) {
   if (msg->arrivedOn("fedIn")) {
     // from federate
-    MosaicConfigurationCmd *cmd;
-    if ((cmd = dynamic_cast<MosaicConfigurationCmd *>(msg))) {
-      handleConfiguration(cmd);
+    if (auto wifiCmd = dynamic_cast<MosaicWifiConfigurationCmd *>(msg)) {
+      handleWifiConfiguration(wifiCmd);
+    } else if (auto cellCmd =
+                   dynamic_cast<MosaicCellularConfigurationCmd *>(msg)) {
+      handleCellularConfiguration(cellCmd);
+    } else if (auto baseCmd = dynamic_cast<MosaicConfigurationCmd *>(msg)) {
+      handleConfiguration(baseCmd);
     } else if (numRadios > 0) { // do nothing if there are no radios
       sendPacket(msg);
     }

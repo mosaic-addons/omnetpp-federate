@@ -24,6 +24,6 @@ package omnetpp_federate.node;
 
 import omnetpp_federate.node.MosaicNode;
 
-module Vehicle extends MosaicNode {
+module Vehicle extends MosaicHybridNode {
 	// nop
 }

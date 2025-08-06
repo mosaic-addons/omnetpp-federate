@@ -30,6 +30,8 @@ simple MosaicScenarioManager {
         string vehModuleName = default("veh"); // module name to be used in the simulation for each managed vehicle
         string rsuModuleType = default("omnetpp_federate.node.Rsu"); // module type to be used in the simulation for each managed vehicle
         string rsuModuleName = default("rsu"); // module name to be used in the simulation for each managed vehicle
+        string nodeBModuleType = default("simu5g.nodes.NR.gNodeB"); // module type to be used in the simulation for each managed Node B
+        string nodeBModuleName = default("gnb"); // module name to be used in the simulation for each managed Node B
         string moduleDisplayString = default("i=misc/node2;is=vs;r=0,,#707070,1"); // module displayString to be used in the simulation for each managed
     gates:
         input mosaicProxyIn[];
