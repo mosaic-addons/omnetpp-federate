@@ -12,14 +12,29 @@ The omnetpp-federate has the following dependencies:
 - `gtest`
 - `inet` (tested with version `4.5.4`)
 - `omnetpp` (tested with version `6.1`) for dependencies on your system please refer to [Install guide](https://doc.omnetpp.org/omnetpp/InstallGuide.pdf)
-- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) (For installing Python deps needed for omnetpp and inet)
+- 
 - `python3-dev`
 
 In the case of Ubuntu system these commands **should** take care of installing the needed packages:
 ```bash
 sudo apt update && sudo apt install -y build-essential pkg-config ccache clang curl lld gdb bison flex perl python3 python3-pip python3-venv libpython3-dev libxml2-dev zlib1g-dev doxygen graphviz xdg-utils libdw-dev
-curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+### Virtual env recommended
+
+You can use [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for installing Python dependencies needed for omnetpp and inet.
+
+```bash 
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv
+uv pip install -r python/requirements.txt
+set +o nounset
+source setenv
+set -o nounset
+<do your stuff>
+deactivate
+```
+
 ## Usage
 
 ```bash
