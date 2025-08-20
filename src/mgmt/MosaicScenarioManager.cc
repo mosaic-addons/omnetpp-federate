@@ -135,7 +135,10 @@ void MosaicScenarioManager::handleMessage(cMessage *msg) {
   } else if (msgName == "MosaicCommunicationCmd") {
     auto *cmd = check_and_cast<MosaicCommunicationCmd *>(msg);
     if (cmd->getCmdType() == COMMUNICATION_CMD_SEND_WIFI_MESSAGE) {
-      EV_DEBUG << "MosaicScenarioManager SEND_MESSAGE" << std::endl;
+      EV_DEBUG << "MosaicScenarioManager SEND_WIFI_MESSAGE" << std::endl;
+      sendV2xMessage(msg);
+    } else if (cmd->getCmdType() == COMMUNICATION_CMD_SEND_CELL_MESSAGE) {
+      EV_DEBUG << "MosaicScenarioManager SEND_CELL_MESSAGE" << std::endl;
       sendV2xMessage(msg);
     }
   } else if (msgName == "MosaicWifiConfigurationCmd") {
@@ -236,7 +239,11 @@ void MosaicScenarioManager::addModule(int nodeId, const std::string &type,
 
   // For gNodeB, don't schedule start yet - we need to replace mobility first
   if (type != nodeBModuleType) {
+
     mod->scheduleStart(simTime());
+  } else {
+    EV << mod->par("nodeType") << " is a gNodeB, not scheduling start yet"
+       << std::endl;
   }
 
   it->second = mod;
@@ -274,6 +281,31 @@ void MosaicScenarioManager::addNode(int nodeId, inet::Coord &position) {
     mobility->setExternalId(nodeId);
     mobility->setNextPosition(position);
   }
+
+  // Configure cellular parameters if cellular NIC exists
+  auto *cellularModule = newNode->getSubmodule("cellularNic");
+  // if (cellularModule != nullptr) {
+  //   // Set unique cellular identifiers for Simu5G registration
+  //   newNode->par("macNodeId") = nodeId + 1000; // Ensure unique MAC node ID
+  //   newNode->par("masterId") = 1;  // Connect to first gNodeB (master)
+  //   newNode->par("macCellId") = 1; // Default cell ID
+
+  //   EV << "Configured cellular parameters for vehicle " << nodeId
+  //      << " macNodeId: " << (nodeId + 1000) << std::endl;
+
+  //   // Check if IP2Nic submodule exists
+  //   auto *ip2nicModule = cellularModule->getSubmodule("ip2nic");
+  //   if (ip2nicModule != nullptr) {
+  //     EV << "Vehicle " << nodeId << " has IP2Nic module for binder
+  //     registration"
+  //        << std::endl;
+  //   } else {
+  //     EV << "WARNING: Vehicle " << nodeId
+  //        << " cellular NIC has no IP2Nic module!" << std::endl;
+  //   }
+  // } else {
+  //   EV << "Vehicle " << nodeId << " has no cellular NIC module" << std::endl;
+  // }
 
   newNode->callInitialize();
   EV << "MosaicScenarioManager added vehicle " << nodeId << " at position "
@@ -364,10 +396,48 @@ void MosaicScenarioManager::addNodeB(int nodeId, inet::Coord &position) {
       }
     }
   }
+  // Add initial macCellId
+  // TODO: This get's overwritten if using dynamicAssociationMode (maybe set in
+  // ned)
+  newNode->par("macCellId") = nodeId + 1;
+  newNode->par("macNodeId") = nodeId + 1;
 
   // Now schedule start for the gNodeB module after mobility is ready
   newNode->scheduleStart(simTime());
   newNode->callInitialize();
+  // Establish PPP connection to UPF for cellular traffic routing
+
+  cModule *upf = getParentModule()->getSubmodule("upf");
+  if (upf && newNode) {
+    // Get the next available index for UPF pppg gates
+    int upfPppIndex = upf->gateSize("pppg$o");
+
+    // Expand UPF gate vector to accommodate new connection
+    upf->setGateSize("pppg", upfPppIndex + 1);
+
+    cGate *gnbPppOut = newNode->gate("ppp$o");
+    cGate *gnbPppIn = newNode->gate("ppp$i");
+    cGate *upfPppOut = upf->gate("pppg$o", upfPppIndex);
+    cGate *upfPppIn = upf->gate("pppg$i", upfPppIndex);
+
+    // Create Ethernet channel for PPP connection (similar to Eth10G in
+    // examples)
+    cChannelType *channelType = cChannelType::get("inet.node.ethernet.Eth10G");
+    if (channelType) {
+      cChannel *channel1 = channelType->create("gNodeB-to-UPF");
+      cChannel *channel2 = channelType->create("UPF-to-gNodeB");
+
+      // Connect with proper channels: gNodeB.ppp <--> Eth10G <--> UPF.pppg[i]
+      gnbPppOut->connectTo(upfPppIn, channel1);
+      upfPppOut->connectTo(gnbPppIn, channel2);
+
+      EV << "Connected gNodeB " << nodeId << " to UPF via pppg[" << upfPppIndex
+         << "] with Eth10G channels for 5G core network routing" << std::endl;
+    } else {
+      EV_ERROR << "Failed to find Eth10G channel type for gNodeB-UPF connection"
+               << std::endl;
+    }
+  }
 
   EV << "MosaicScenarioManager added nodeB " << nodeId << " at position "
      << position.x << "," << position.y << " at time " << simTime()
@@ -403,7 +473,6 @@ void MosaicScenarioManager::removeNode(int nodeId) {
        << std::endl;
 
     nodes.erase(nodeId);
-    mod->callFinish();
     // we have to delete the two radios before we delete the node, since the
     // MediumLimitCache tries to determine the minimal constrained area from the
     // nonexistent mobility while deleting the radios.
@@ -416,34 +485,7 @@ void MosaicScenarioManager::removeNode(int nodeId) {
       wlan1Module->deleteModule();
     }
 
-    // Check if this node has a cellular NIC and what its binder registration
-    // status is
-    auto *cellularModule = mod->getSubmodule("cellularNic");
-    if (cellularModule != nullptr) {
-      auto *ip2nicModule = cellularModule->getSubmodule("ip2nic");
-      if (ip2nicModule != nullptr) {
-        EV << "Node " << nodeId << " has cellular NIC with IP2Nic module"
-           << std::endl;
-        // Try to get binder and check registration
-        try {
-          auto *binder =
-              dynamic_cast<simu5g::Binder *>(getModuleByPath("binder"));
-          if (binder != nullptr) {
-            simu5g::MacNodeId macNodeId =
-                binder->getMacNodeIdFromOmnetId(mod->getId());
-            EV << "Node " << nodeId << " cellular MacNodeId: " << macNodeId
-               << std::endl;
-          }
-        } catch (...) {
-          EV << "Could not retrieve MacNodeId for node " << nodeId << std::endl;
-        }
-      }
-    }
-    // Also handle the cellular NIC explicitly
-    auto *e = mod->getSubmodule("cellularNic");
-    if (e != nullptr) {
-      e->deleteModule();
-    }
+    mod->callFinish();
     mod->deleteModule();
 
     EV << "MosaicScenarioManager removed node " << nodeId << " at time "
@@ -458,8 +500,12 @@ void MosaicScenarioManager::sendV2xMessage(cMessage *msg) {
   if (mod == nullptr) {
     EV << "WARNING: Node " << nodeId << " not mapped" << std::endl;
   } else {
-    if (cmd->getTtl() != 1) {
-      EV << "WARNING: up to now only singlehop-broadcast supported"
+    // Check if WiFi or cellular based on command type
+    bool isCellular =
+        (cmd->getCmdType() == COMMUNICATION_CMD_SEND_CELL_MESSAGE);
+
+    if (!isCellular && cmd->getTtl() != 1) {
+      EV << "WARNING: up to now only singlehop-broadcast supported for WiFi"
          << std::endl;
     } else {
       const auto msgId = cmd->getMsgId();
@@ -468,15 +514,22 @@ void MosaicScenarioManager::sendV2xMessage(cMessage *msg) {
       packet->setNodeId(nodeId);
       packet->setMsgId(msgId);
       packet->setDestAddr(cmd->getDestAddr());
-      packet->setChannelId(cmd->getChannelId());
+
+      // Set channel: -1 for cellular, actual channel for WiFi
+      if (isCellular) {
+        packet->setChannelId(-1); // Cellular indicator
+      } else {
+        packet->setChannelId(cmd->getChannelId()); // WiFi channel
+      }
 
       const auto chunk =
           inet::makeShared<inet::ByteCountChunk>(cmd->getLength());
       packet->insertAtFront(chunk);
 
       send(packet, "mosaicProxyOut", nodeId);
-      EV << "MosaicScenarioManager send udp message " << msgId << " from node "
-         << nodeId << " at time " << simTime() << std::endl;
+      EV << "MosaicScenarioManager send " << (isCellular ? "cellular" : "wifi")
+         << " message " << msgId << " from node " << nodeId << " at time "
+         << simTime() << std::endl;
     }
   }
 }

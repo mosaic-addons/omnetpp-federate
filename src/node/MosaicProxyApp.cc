@@ -119,9 +119,13 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   // send message to UDP, with the appropriate control info attached
   auto packet = omnetpp::check_and_cast<MosaicAppPacket *>(msg);
 
-  if (numRadios < 1) {
-    EV << "No radio turned on, discarding message " << packet->getMsgId()
-       << std::endl;
+  // Allow messages if WiFi radios are available OR if it's a cellular message
+  // with cellular interface
+  bool canSend = (numRadios >= 1) ||
+                 (packet->getChannelId() == -1 && cellularIe != nullptr);
+  if (!canSend) {
+    EV << "No radio/interface available for message " << packet->getMsgId()
+       << " (channelId: " << packet->getChannelId() << ")" << std::endl;
     return;
   }
 
@@ -138,14 +142,20 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   udpPacket->addTagIfAbsent<inet::L4PortReq>()->setDestPort(destPort);
 
   int channelId = packet->getChannelId();
-  if (numRadios > 0 && channelId == radio0Channel) {
+  if (channelId == -1 && cellularIe != nullptr) {
+    // Route cellular messages via cellular interface
+    udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
+        cellularIe->getInterfaceId());
+    EV << "Routing packet via cellular interface" << std::endl;
+  } else if (numRadios > 0 && channelId == radio0Channel) {
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         ie0->getInterfaceId());
   } else if (numRadios > 1 && channelId == radio1Channel) {
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         ie1->getInterfaceId());
   } else {
-    EV << "Unused channel set in Packet " << std::endl;
+    EV << "Unused channel set in Packet (channelId: " << channelId << ")"
+       << std::endl;
     return;
   }
 
@@ -289,6 +299,9 @@ void MosaicProxyApp::handleCellularConfiguration(
     MosaicCellularConfigurationCmd *cmd) {
   // Configure IP addresses if cellular interface exists
   if (cellularIe != nullptr) {
+    if (cmd->getSubnet().isUnspecified()) {
+      cmd->setSubnet(inet::Ipv4Address::makeNetmask(16));
+    }
     cellularIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()
         ->setIPAddress(cmd->getIp());
     cellularIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
@@ -353,6 +366,7 @@ void MosaicProxyApp::connectRadios(int number) {
 }
 
 void MosaicProxyApp::handleMessageWhenUp(omnetpp::cMessage *msg) {
+  EV << "MosaicProxyApp received message: " << msg->getName() << std::endl;
   if (msg->arrivedOn("fedIn")) {
     // from federate
     if (auto wifiCmd = dynamic_cast<MosaicWifiConfigurationCmd *>(msg)) {
@@ -362,7 +376,9 @@ void MosaicProxyApp::handleMessageWhenUp(omnetpp::cMessage *msg) {
       handleCellularConfiguration(cellCmd);
     } else if (auto baseCmd = dynamic_cast<MosaicConfigurationCmd *>(msg)) {
       handleConfiguration(baseCmd);
-    } else if (numRadios > 0) { // do nothing if there are no radios
+    } else if (numRadios > 0 ||
+               cellularIe != nullptr) { // do nothing if there are no radios or
+                                        // cellular interface is not available
       sendPacket(msg);
     }
   } else if (msg->arrivedOn("socketIn")) {

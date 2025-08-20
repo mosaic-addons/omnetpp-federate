@@ -46,7 +46,7 @@ module MosaicHybridNode {
         udp.icmpModule = absPath(".icmp");
         
         // Cellular configuration
-        string cellularNicType = default("LteNicUe");  // Can be "LteNicUe" or "NRNicUe"
+        string cellularNicType = default("NRNicUe");  // Can be "LteNicUe" or "NRNicUe"
         string nodeType = default("UE");  // UE for cellular connectivity
         int masterId @mutable = default(0);  // Master ID for cellular connectivity
         int macNodeId @mutable = default(0);
@@ -61,6 +61,7 @@ module MosaicHybridNode {
         bool hasRNISupport = default(false);
         cellularNic.mac.collectorModule = hasRNISupport ? "^.^.ueCollector" : "";
         cellularNic.phy.hasCollector = hasRNISupport;
+        cellularNic.phy.dynamicCellAssociation = true;
 
         //# External Ethernet interfaces (has to be set but not used in this module) 
         // TODO: Move this to omnetpp.ini ?

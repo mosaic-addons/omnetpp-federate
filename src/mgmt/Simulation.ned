@@ -33,6 +33,7 @@ import omnetpp_federate.node.Vehicle;
 
 // Simu5G imports for 5G infrastructure
 import simu5g.nodes.NR.gNodeB;
+import simu5g.nodes.Upf;
 import simu5g.world.radio.LteChannelControl;
 import simu5g.common.binder.Binder;
 import simu5g.common.carrierAggregation.CarrierAggregation;
@@ -44,6 +45,15 @@ network Simulation {
     parameters:
         @display("bgb=440,300");
     submodules:
+        configurator: Ipv4NetworkConfigurator {
+            parameters:
+                @display("p=60,250;is=s");
+                config = xmldoc("network_config.xml");  // External XML config file
+                // assignAddresses = false;                  // Let configurator assign base addresses
+                // addStaticRoutes = true;                  // Add routes between subnets
+                // addDefaultRoutes = true;                 // Add default routes via UPF
+                // addDirectRoutes = true;                  // Direct routes on same subnet
+        }
         radioMedium: Ieee80211ScalarRadioMedium {
             parameters:
                 @display("p=60,50");
@@ -66,6 +76,11 @@ network Simulation {
             parameters:
                 @display("p=60,200;is=s");
         }
+                // Core Network - User Plane Function (handles packet forwarding between cells)
+        upf: Upf {
+            parameters:
+                @display("p=200,100");
+        }
 
         mgmt: MosaicScenarioManager {
             parameters:
@@ -81,4 +96,9 @@ network Simulation {
                 @dynamic;
                 @display("p=309,140");
         }
+    connections allowunconnected:
+        // PPP connections between gNodeBs and UPF are established dynamically
+        // in MosaicScenarioManager::addNodeB() when each gNodeB is created
+
+        
 }
