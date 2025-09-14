@@ -356,46 +356,56 @@ void MosaicScenarioManager::addRsuNode(int nodeId, inet::Coord &position) {
 }
 
 void MosaicScenarioManager::addNodeB(int nodeId, inet::Coord &position) {
-  cModule *newNode = getManagedModule(nodeId);
-  if (newNode) {
-    error("Tried adding duplicate node (nodeB) %d", nodeId);
-  }
+  // cModule *newNode = getManagedModule(nodeId);
+  // if (newNode) {
+  //   error("Tried adding duplicate node (nodeB) %d", nodeId);
+  // }
 
-  addModule(nodeId, nodeBModuleType, nodeBModuleName, moduleDisplayString);
-  newNode = getManagedModule(nodeId);
+  // addModule(nodeId, nodeBModuleType, nodeBModuleName, moduleDisplayString);
+  // newNode = getManagedModule(nodeId);
 
-  // Set display string with coordinates so ChannelAccess can find them as
-  // fallback
-  std::string displayStr = moduleDisplayString +
-                           ";p=" + std::to_string((int)position.x) + "," +
-                           std::to_string((int)position.y);
-  newNode->getDisplayString().parse(displayStr.c_str());
+  // Get the submodule vector for nodeBs
+    auto *parentmod = getParentModule();
+    if (!parentmod) {
+      error("Parent module not found");
+    }
+    auto newNode = parentmod->getSubmodule("nodeB", nodeId);
+    if (newNode) {
+      // Set display string with coordinates so ChannelAccess can find them as
+      // fallback
+      std::string displayStr = moduleDisplayString +
+                              ";p=" + std::to_string((int)position.x) + "," +
+                              std::to_string((int)position.y);
+      newNode->getDisplayString().parse(displayStr.c_str());
+    }
+
+
 
   // Replace the hardcoded StationaryMobility with MosaicMobility
-  auto *oldMobility = newNode->getSubmodule("mobility");
-  if (oldMobility) {
-    // Delete the existing StationaryMobility module
-    oldMobility->deleteModule();
+  // auto *oldMobility = newNode->getSubmodule("mobility");
+  // if (oldMobility) {
+  //   // Delete the existing StationaryMobility module
+  //   oldMobility->deleteModule();
 
-    // Create a new MosaicMobility module
-    auto *mobilityType =
-        cModuleType::get("omnetpp_federate.node.MosaicMobility");
-    if (mobilityType) {
-      auto *newMobility = mobilityType->create("mobility", newNode);
-      newMobility->finalizeParameters();
-      newMobility->buildInside();
+  //   // Create a new MosaicMobility module
+  //   auto *mobilityType =
+  //       cModuleType::get("omnetpp_federate.node.MosaicMobility");
+  //   if (mobilityType) {
+  //     auto *newMobility = mobilityType->create("mobility", newNode);
+  //     newMobility->finalizeParameters();
+  //     newMobility->buildInside();
 
-      // Set position and ID after building (parameters are now accessible)
-      auto *mobility = dynamic_cast<MosaicMobility *>(newMobility);
-      if (mobility) {
-        mobility->setExternalId(nodeId);
-        mobility->setNextPosition(position); // This sets the position properly
+  //     // Set position and ID after building (parameters are now accessible)
+  //     auto *mobility = dynamic_cast<MosaicMobility *>(newMobility);
+  //     if (mobility) {
+  //       mobility->setExternalId(nodeId);
+  //       mobility->setNextPosition(position); // This sets the position properly
 
-        EV << "MosaicMobility created for nodeB " << nodeId << " at position "
-           << position.x << "," << position.y << std::endl;
-      }
-    }
-  }
+  //       EV << "MosaicMobility created for nodeB " << nodeId << " at position "
+  //          << position.x << "," << position.y << std::endl;
+  //     }
+  //   }
+  // }
   // Add initial macCellId
   // TODO: This get's overwritten if using dynamicAssociationMode (maybe set in
   // ned)
@@ -403,46 +413,44 @@ void MosaicScenarioManager::addNodeB(int nodeId, inet::Coord &position) {
   newNode->par("macNodeId") = nodeId + 1;
 
   // Now schedule start for the gNodeB module after mobility is ready
-  newNode->scheduleStart(simTime());
-  newNode->callInitialize();
-  // Establish PPP connection to UPF for cellular traffic routing
+  // newNode->scheduleStart(simTime());
+  // newNode->callInitialize();
+  // // Establish PPP connection to UPF for cellular traffic routing
 
-  cModule *upf = getParentModule()->getSubmodule("upf");
-  if (upf && newNode) {
-    // Get the next available index for UPF pppg gates
-    int upfPppIndex = upf->gateSize("pppg$o");
+  // cModule *upf = getParentModule()->getSubmodule("upf");
+  // if (upf && newNode) {
+  //   // Get the next available index for UPF pppg gates
+  //   int upfPppIndex = upf->gateSize("pppg$o");
 
-    // Expand UPF gate vector to accommodate new connection
-    upf->setGateSize("pppg", upfPppIndex + 1);
+  //   // Expand UPF gate vector to accommodate new connection
+  //   upf->setGateSize("pppg", upfPppIndex + 1);
 
-    cGate *gnbPppOut = newNode->gate("ppp$o");
-    cGate *gnbPppIn = newNode->gate("ppp$i");
-    cGate *upfPppOut = upf->gate("pppg$o", upfPppIndex);
-    cGate *upfPppIn = upf->gate("pppg$i", upfPppIndex);
+  //   cGate *gnbPppOut = newNode->gate("ppp$o");
+  //   cGate *gnbPppIn = newNode->gate("ppp$i");
+  //   cGate *upfPppOut = upf->gate("pppg$o", upfPppIndex);
+  //   cGate *upfPppIn = upf->gate("pppg$i", upfPppIndex);
 
-    // Create Ethernet channel for PPP connection (similar to Eth10G in
-    // examples)
-    cChannelType *channelType = cChannelType::get("inet.node.ethernet.Eth10G");
-    if (channelType) {
-      cChannel *channel1 = channelType->create("gNodeB-to-UPF");
-      cChannel *channel2 = channelType->create("UPF-to-gNodeB");
+  //   // Create Ethernet channel for PPP connection (similar to Eth10G in
+  //   // examples)
+  //   cChannelType *channelType = cChannelType::get("inet.node.ethernet.Eth10G");
+  //   if (channelType) {
+  //     cChannel *channel1 = channelType->create("gNodeB-to-UPF");
+  //     cChannel *channel2 = channelType->create("UPF-to-gNodeB");
 
-      // Connect with proper channels: gNodeB.ppp <--> Eth10G <--> UPF.pppg[i]
-      gnbPppOut->connectTo(upfPppIn, channel1);
-      upfPppOut->connectTo(gnbPppIn, channel2);
+  //     // Connect with proper channels: gNodeB.ppp <--> Eth10G <--> UPF.pppg[i]
+  //     gnbPppOut->connectTo(upfPppIn, channel1);
+  //     upfPppOut->connectTo(gnbPppIn, channel2);
 
-      EV << "Connected gNodeB " << nodeId << " to UPF via pppg[" << upfPppIndex
-         << "] with Eth10G channels for 5G core network routing" << std::endl;
-    } else {
-      EV_ERROR << "Failed to find Eth10G channel type for gNodeB-UPF connection"
-               << std::endl;
+  //     EV << "Connected gNodeB " << nodeId << " to UPF via pppg[" << upfPppIndex
+  //        << "] with Eth10G channels for 5G core network routing" << std::endl;
+  //   } else {
+  //     EV_ERROR << "Failed to find Eth10G channel type for gNodeB-UPF connection"
+  //              << std::endl;
+  //   }
     }
-  }
 
-  EV << "MosaicScenarioManager added nodeB " << nodeId << " at position "
-     << position.x << "," << position.y << " at time " << simTime()
-     << std::endl;
-}
+
+
 
 void MosaicScenarioManager::moveNode(int nodeId, inet::Coord &position) {
   cModule *mod = getManagedModule(nodeId);

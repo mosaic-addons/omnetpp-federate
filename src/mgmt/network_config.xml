@@ -1,19 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <!-- Configure network address ranges for different node types -->
-  <interface hosts="**" towards="upf" address="192.168.x.x" netmask="255.255.255.0"/>
-  
-  <!-- UPF acts as gateway/router between cellular subnets -->
-  <interface hosts="upf" address="192.168.0.1" netmask="255.255.0.0"/>
-  
-  <!-- gNodeB interfaces toward UPF -->
-  <interface hosts="gnb[*]" towards="upf" address="192.168.1.x" netmask="255.255.255.0"/>
-  
-  <!-- Routes between cellular subnets via UPF -->
-  <route hosts="**" destination="10.1.0.0" netmask="255.255.0.0" gateway="192.168.0.1"/>
-  <route hosts="**" destination="10.2.0.0" netmask="255.255.0.0" gateway="192.168.0.1"/>
-  <route hosts="**" destination="10.3.0.0" netmask="255.255.0.0" gateway="192.168.0.1"/>
-  <route hosts="**" destination="10.4.0.0" netmask="255.255.0.0" gateway="192.168.0.1"/>
-  <route hosts="**" destination="10.5.0.0" netmask="255.255.0.0" gateway="192.168.0.1"/>
-  <route hosts="**" destination="10.6.0.0" netmask="255.255.0.0" gateway="192.168.0.1"/>
+    <interface hosts="nodeB[*]" names="cellular" address="10.0.x.x" netmask="255.0.0.0"/>
+    <interface hosts="*" address="192.168.x.x" netmask="255.255.255.0"/>
+
+
 </config>

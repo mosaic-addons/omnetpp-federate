@@ -30,11 +30,13 @@
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/networklayer/ipv4/Ipv4InterfaceData.h"
+#include "inet/networklayer/ipv4/Ipv4RoutingTable.h"
 #include "inet/physicallayer/wireless/common/contract/packetlevel/IRadio.h"
 #include "inet/physicallayer/wireless/common/contract/packetlevel/RadioControlInfo_m.h"
 #include "inet/physicallayer/wireless/ieee80211/packetlevel/Ieee80211ControlInfo_m.h"
 #include "inet/transportlayer/common/L4PortTag_m.h"
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
+#include "common/binder/Binder.h"
 
 #include "msg/MosaicAppPacket_m.h"
 
@@ -75,14 +77,13 @@ void MosaicProxyApp::initialize(int stage) {
           if (tmpIe == nullptr || tmpIe->isLoopback()) {
             continue;
           }
+          EV << "Found interface: " << tmpIe->getFullName() << std::endl;
           if (!strncmp(tmpIe->getFullName(), "wlan0", 6)) {
             ie0 = tmpIe;
           } else if (!strncmp(tmpIe->getFullName(), "wlan1", 6)) {
             ie1 = tmpIe;
           } else if (!strncmp(tmpIe->getFullName(), "cellularNic", 11)) {
             cellularIe = tmpIe;
-            EV << "Found cellular interface: " << tmpIe->getFullName()
-               << std::endl;
           }
         }
       }
@@ -306,7 +307,43 @@ void MosaicProxyApp::handleCellularConfiguration(
         ->setIPAddress(cmd->getIp());
     cellularIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet());
-    cellularIe->setBroadcast(true);
+
+    // Add default route via cellular
+    // TODO: Check this out
+    auto mosaicNode = this->getParentModule();
+    inet::Ipv4RoutingTable *routingTable;
+    if (mosaicNode != nullptr) {
+      auto sub = mosaicNode->getSubmodule("routingTable");
+      if ((routingTable = dynamic_cast<inet::Ipv4RoutingTable *>(sub))) {
+        auto *defaultRoute = new inet::Ipv4Route();
+        defaultRoute->setDestination(inet::Ipv4Address("0.0.0.0"));
+        defaultRoute->setNetmask(inet::Ipv4Address("0.0.0.0"));
+        defaultRoute->setInterface(cellularIe);
+        routingTable->addRoute(defaultRoute);
+      }
+    }
+
+    EV << "Added default route via cellular interface for vehicle with IP: "
+       << cmd->getIp() << std::endl;
+
+    // Get the binder and register the IP address
+    simu5g::Binder *binder = omnetpp::check_and_cast<simu5g::Binder *>(
+        getSimulation()->getModuleByPath("binder"));
+    // Get parent module
+    auto *parent = getParentModule();
+    if (parent != nullptr) {
+      // Register the IP address with the binder
+
+      simu5g::MacNodeId macNodeId =
+          binder->getMacNodeIdFromOmnetId(parent->getId());
+      EV << "Got MAC node ID: " << macNodeId
+         << " for node with id: " << parent->getId() << std::endl;
+      // Associate the received IP address with the MAC node ID
+      binder->setMacNodeId(cmd->getIp(), macNodeId);
+      simu5g::MacNodeId test = binder->getMacNodeId(cmd->getIp());
+      EV << "Registered IP address " << cmd->getIp()
+         << " with MAC node ID: " << test << std::endl;
+    }
 
     EV << "Configured cellular interface IP: " << cmd->getIp()
        << " subnet: " << cmd->getSubnet() << std::endl;

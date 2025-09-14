@@ -274,14 +274,25 @@ void MosaicEventScheduler::reportReceivedV2xMessage(cMessage *msg) {
            << packet->getArrivalTime().str()
            << ", RecNodeId=" << packet->getNodeId()
            << ", MsgId=" << packet->getMsgId() << std::endl;
-
-  m_federateAmbassadorChannel->writeCommand(
+  if (packet){
+    if (packet->getChannelId() == -1) { // This means a CELL message TODO: differentiate between wifi/cell message in a better way
+      m_federateAmbassadorChannel->writeCommand(
+          CommandMessage_CommandType_RECV_CELL_MSG);
+      m_federateAmbassadorChannel->writeReceiveCellMessage(
+          packet->getArrivalTime().inUnit(SimTimeUnit::SIMTIME_NS),
+          packet->getNodeId(), packet->getMsgId());
+    } else {
+        m_federateAmbassadorChannel->writeCommand(
       CommandMessage_CommandType_RECV_WIFI_MSG);
   m_federateAmbassadorChannel->writeReceiveWifiMessage(
       packet->getArrivalTime().inUnit(SimTimeUnit::SIMTIME_NS),
       packet->getNodeId(), packet->getMsgId(),
       static_cast<RadioChannel>(packet->getChannelId()), 0);
   // rssi and channel number are not reported
+
+    }
+  }
+
 }
 
 void MosaicEventScheduler::processShutDown() {
@@ -454,10 +465,10 @@ void MosaicEventScheduler::processSendCellMsg() {
       send_message, time);
 
   EV_DEBUG << "MosaicEventScheduler SEND_CELL_MESSAGE: from="
-           << comMessage->getNodeId()
-           << ", destAddress: " << comMessage->getDestAddr()
-           << ", id=" << comMessage->getMsgId() << ", prot=cellular"
-           << std::endl;
+          << comMessage->getNodeId()
+          << ", destAddress: " << comMessage->getDestAddr()
+          << ", id=" << comMessage->getMsgId() << ", prot=cellular"
+          << std::endl;
 
   comMessage->setArrival(mgmt->getId(), -1);
   putBackEvent(comMessage.release());
@@ -494,6 +505,13 @@ void MosaicEventScheduler::processAdvanceTime() {
   const int64_t newMaxTime = m_ambassadorFederateChannel->readTimeMessage();
   m_currentMaxSimTime = SimTime(newMaxTime, SimTimeUnit::SIMTIME_NS);
   m_timeAdvancing = true;
+  
+  // Mark simulation as started after first meaningful advance time (like NS-3)
+  if (newMaxTime > 0 && !m_simulationStarted) {
+    m_simulationStarted = true;
+    EV_DEBUG << "Simulation started - no more gNodeBs can be added dynamically" << std::endl;
+  }
+  
   EV_DEBUG << "MosaicEventScheduler ADVANCE_TIME: " << m_currentMaxSimTime
            << std::endl;
 }

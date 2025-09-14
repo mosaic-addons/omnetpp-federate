@@ -26,6 +26,7 @@ import inet.physicallayer.wireless.ieee80211.packetlevel.Ieee80211ScalarRadioMed
 import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
 import inet.node.gpsr.GpsrRouter;
 import inet.node.inet.AdhocHost;
+import inet.node.ethernet.Eth10G;
 
 import omnetpp_federate.mgmt.MosaicScenarioManager;
 import omnetpp_federate.node.Rsu;
@@ -44,6 +45,7 @@ import simu5g.common.carrierAggregation.CarrierAggregation;
 network Simulation {
     parameters:
         @display("bgb=440,300");
+        int numNodeBs = default(2); // Number of gNodeBs (5G base stations)
     submodules:
         configurator: Ipv4NetworkConfigurator {
             parameters:
@@ -96,9 +98,15 @@ network Simulation {
                 @dynamic;
                 @display("p=309,140");
         }
+        nodeB[numNodeBs]: gNodeB {
+            parameters:
+                @display("p=200,200");
+        }
     connections allowunconnected:
-        // PPP connections between gNodeBs and UPF are established dynamically
-        // in MosaicScenarioManager::addNodeB() when each gNodeB is created
+        for i=0..numNodeBs-1 {
+            upf.pppg++ <--> Eth10G<--> nodeB[i].ppp;
+        }
+        //
 
         
 }
