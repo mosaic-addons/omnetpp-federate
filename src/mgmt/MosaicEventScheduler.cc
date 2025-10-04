@@ -506,11 +506,7 @@ void MosaicEventScheduler::processAdvanceTime() {
   m_currentMaxSimTime = SimTime(newMaxTime, SimTimeUnit::SIMTIME_NS);
   m_timeAdvancing = true;
   
-  // Mark simulation as started after first meaningful advance time (like NS-3)
-  if (newMaxTime > 0 && !m_simulationStarted) {
-    m_simulationStarted = true;
-    EV_DEBUG << "Simulation started - no more gNodeBs can be added dynamically" << std::endl;
-  }
+
   
   EV_DEBUG << "MosaicEventScheduler ADVANCE_TIME: " << m_currentMaxSimTime
            << std::endl;

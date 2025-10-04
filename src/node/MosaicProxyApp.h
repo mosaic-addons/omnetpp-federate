@@ -81,6 +81,9 @@ private:
 
   // Cellular NIC management
   inet::NetworkInterface *cellularIe = nullptr;
+  
+  // Wired interface management (Ethernet)
+  inet::NetworkInterface *ethIe = nullptr;
 
 protected:
   virtual void handleStartOperation(inet::LifecycleOperation *operation) {

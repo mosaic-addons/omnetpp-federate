@@ -46,12 +46,15 @@ public:
   virtual void handleMessage(cMessage *msg);
 
 private:
+  bool nodeBRegistrationDone = false;
   std::string vehModuleType;
   std::string vehModuleName;
   std::string rsuModuleType;
   std::string rsuModuleName;
   std::string nodeBModuleType;
   std::string nodeBModuleName;
+  std::string wiredModuleType;
+  std::string wiredModuleName;
   std::string moduleDisplayString;
   inet::Ipv4Address addressBase;
   inet::Ipv4Address netmask;
@@ -65,6 +68,7 @@ private:
   virtual void addNode(int nodeId, inet::Coord &position);
   virtual void addRsuNode(int nodeId, inet::Coord &position);
   virtual void addNodeB(int nodeId, inet::Coord &position);
+  virtual void addWiredNode(int nodeId, inet::Coord &position);
   virtual void moveNode(int nodeId, inet::Coord &position);
   virtual void removeNode(int nodeId);
   virtual void sendV2xMessage(cMessage *msg);

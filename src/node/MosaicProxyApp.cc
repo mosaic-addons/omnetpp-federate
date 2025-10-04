@@ -84,28 +84,44 @@ void MosaicProxyApp::initialize(int stage) {
             ie1 = tmpIe;
           } else if (!strncmp(tmpIe->getFullName(), "cellularNic", 11)) {
             cellularIe = tmpIe;
+          } else if (!strncmp(tmpIe->getFullName(), "eth", 3)) {
+            ethIe = tmpIe;
           }
         }
       }
     }
-    if (ie0 == nullptr || ie1 == nullptr) {
+    // Check if we have wireless interfaces or wired/cellular interfaces
+    bool hasWirelessInterfaces = (ie0 != nullptr || ie1 != nullptr);
+    bool hasWiredOrCellularInterface = (ethIe != nullptr || cellularIe != nullptr);
+    
+    if (!hasWirelessInterfaces && !hasWiredOrCellularInterface) {
+      EV_ERROR << "MosaicProxyApp: No supported network interfaces found" << std::endl;
       setOperationalState(NOT_OPERATING);
       return;
     }
-    if ((radio0 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
-             ie0->getSubmodule("radio"))) == 0) {
-      setOperationalState(NOT_OPERATING);
-      return;
+    
+    if (hasWirelessInterfaces) {
+      // Initialize wireless radios if available
+      if ((radio0 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
+               ie0->getSubmodule("radio"))) == 0) {
+        setOperationalState(NOT_OPERATING);
+        return;
+      }
+      if ((radio1 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
+               ie1->getSubmodule("radio"))) == 0) {
+        setOperationalState(NOT_OPERATING);
+        return;
+      }
+      
+      // Disconnect all radios initially
+      numRadios = 2;
+      connectRadios(0);
+    } else {
+      // For wired-only or cellular-only nodes, set numRadios to 0
+      numRadios = 0;
+      EV << "MosaicProxyApp operating in wired/cellular mode without wireless radios" << std::endl;
     }
-    if ((radio1 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
-             ie1->getSubmodule("radio"))) == 0) {
-      setOperationalState(NOT_OPERATING);
-      return;
-    }
-
-    // Disconnect all radios
-    numRadios = 2;
-    connectRadios(0);
+    
     setOperationalState(OPERATING);
   }
 }
@@ -121,9 +137,10 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   auto packet = omnetpp::check_and_cast<MosaicAppPacket *>(msg);
 
   // Allow messages if WiFi radios are available OR if it's a cellular message
-  // with cellular interface
+  // with cellular interface OR if it's a wired interface
   bool canSend = (numRadios >= 1) ||
-                 (packet->getChannelId() == -1 && cellularIe != nullptr);
+                 (packet->getChannelId() == -1 && cellularIe != nullptr) ||
+                 (ethIe != nullptr);
   if (!canSend) {
     EV << "No radio/interface available for message " << packet->getMsgId()
        << " (channelId: " << packet->getChannelId() << ")" << std::endl;
@@ -148,12 +165,18 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         cellularIe->getInterfaceId());
     EV << "Routing packet via cellular interface" << std::endl;
+   
   } else if (numRadios > 0 && channelId == radio0Channel) {
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         ie0->getInterfaceId());
   } else if (numRadios > 1 && channelId == radio1Channel) {
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         ie1->getInterfaceId());
+  } else if (ethIe != nullptr) {
+    // Default to Ethernet interface for wired nodes when no specific routing
+    udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
+        ethIe->getInterfaceId());
+    EV << "Defaulting to Ethernet interface for wired node" << std::endl;
   } else {
     EV << "Unused channel set in Packet (channelId: " << channelId << ")"
        << std::endl;
@@ -161,7 +184,7 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   }
 
   EV << "Sending packet: " << packet->getMsgId() << " on  channel "
-     << packet->getChannelId() << std::endl;
+     << packet->getChannelId() << " to " << destAddr << std::endl;
   sendDelayed(udpPacket, delay, gate("socketOut"));
 }
 
@@ -347,6 +370,42 @@ void MosaicProxyApp::handleCellularConfiguration(
 
     EV << "Configured cellular interface IP: " << cmd->getIp()
        << " subnet: " << cmd->getSubnet() << std::endl;
+  } else if (ethIe != nullptr) {
+    // If no cellular interface, configure Ethernet interface if available
+    if (cmd->getSubnet().isUnspecified()) {
+      cmd->setSubnet(inet::Ipv4Address::makeNetmask(16));
+    }
+    ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setIPAddress(
+        cmd->getIp());
+    ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
+        cmd->getSubnet());
+    // ethIe->setBroadcast(true);
+    // Add default route via Ethernet
+    // TODO: Check this out
+    auto mosaicNode = this->getParentModule();
+    inet::Ipv4RoutingTable *routingTable;
+    if (mosaicNode != nullptr) {
+      auto sub = mosaicNode->getSubmodule("ipv4")->getSubmodule("routingTable");
+      if ((routingTable = dynamic_cast<inet::Ipv4RoutingTable *>(sub))) {
+        auto *defaultRoute = new inet::Ipv4Route();
+        defaultRoute->setDestination(inet::Ipv4Address("0.0.0.0"));
+        defaultRoute->setNetmask(inet::Ipv4Address("0.0.0.0"));
+        defaultRoute->setGateway(inet::Ipv4Address("10.5.0.2"));
+        defaultRoute->setMetric(1);
+        defaultRoute->setInterface(ethIe);
+        routingTable->addRoute(defaultRoute);
+      }
+    }
+    routingTable->printRoutingTable();
+
+    EV << "Added default route via Ethernet interface for vehicle with IP: "
+       << cmd->getIp() << std::endl;
+
+    EV << "Configured Ethernet interface IP: " << cmd->getIp()
+       << " subnet: " << cmd->getSubnet() << std::endl;
+  } else {
+    EV << "No cellular or Ethernet interface available to configure IP: "
+       << cmd->getIp() << std::endl;
   }
 }
 
@@ -414,8 +473,8 @@ void MosaicProxyApp::handleMessageWhenUp(omnetpp::cMessage *msg) {
     } else if (auto baseCmd = dynamic_cast<MosaicConfigurationCmd *>(msg)) {
       handleConfiguration(baseCmd);
     } else if (numRadios > 0 ||
-               cellularIe != nullptr) { // do nothing if there are no radios or
-                                        // cellular interface is not available
+               cellularIe != nullptr ||
+               ethIe != nullptr) { // do nothing if there are no radios, cellular interface, or ethernet interface available
       sendPacket(msg);
     }
   } else if (msg->arrivedOn("socketIn")) {
