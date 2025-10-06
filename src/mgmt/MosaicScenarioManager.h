@@ -61,6 +61,13 @@ private:
   std::map<int, cModule *> nodes;
   MosaicEventScheduler *sched;
 
+  // NodeB batch configuration
+  struct NodeBConfig {
+    int nodeId;
+    inet::Coord position;
+  };
+  std::vector<NodeBConfig> pendingNodeBs;
+
   virtual cModule *getManagedModule(int nodeId);
   virtual void addModule(int nodeId, const std::string &type,
                          const std::string &name,
@@ -74,6 +81,12 @@ private:
   virtual void sendV2xMessage(cMessage *msg);
   virtual void receiveV2xMessage(cMessage *msg);
   virtual void configureRadio(cMessage *msg);
+  
+  // NodeB batch configuration methods
+  virtual void configureX2Connections();
+  virtual void addAllNodeBsToSimulation();
+  virtual void addNodeBToSimulation(int nodeId, inet::Coord &position);
+  virtual void createX2Connection(int nodeB1Id, int nodeB2Id);
 };
 
 } // namespace omnetpp_federate
