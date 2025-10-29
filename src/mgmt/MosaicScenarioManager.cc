@@ -103,64 +103,29 @@ namespace omnetpp_federate
           !nodeBRegistrationDone)
       {
         // First non-NodeB message after NodeB configuration - add all NodeBs to simulation
-        if (!pendingNodeBs.empty()) {
+        if (!pendingNodeBs.empty())
+        {
           EV << "Adding " << pendingNodeBs.size() << " configured NodeBs to simulation" << std::endl;
+          auto numX2Apps = pendingNodeBs.size() - 1; // One X2App per peer NodeB
+
+          for (const auto &config : pendingNodeBs)
+          {
+            // Get the nodeB
+            cModule *nodeB = getManagedModule(config.nodeId);
+            if (nodeB)
+            {
+              // Set the number of X2Apps
+              nodeB->par("numX2Apps") = numX2Apps;
+              // Finalize parameters for the nodeB
+              nodeB->finalizeParameters();
+            }
+          }
           configureX2Connections();
           addAllNodeBsToSimulation();
         }
-        
-        // Create a new configurator
-        auto *parentmod = getParentModule();
-        auto *ipconfig = parentmod->getSubmodule("configurator");
-        if (ipconfig)
-        {
-          ipconfig->deleteModule();
-        }
-        cModuleType *configuratorType = cModuleType::get("inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator");
-        cModule *newConfigurator = configuratorType->create("configurator", parentmod);
 
-        // Set parameters (copy from original configuration)
-        // newConfigurator->par("config") = "xmldoc(\"network_config.xml\")";
-        newConfigurator->finalizeParameters();
-        newConfigurator->buildInside();
-        newConfigurator->callInitialize();
-        EV << "Recreated IP configurator to assign IP address to new gNodeB"
-           << std::endl;
         nodeBRegistrationDone = true;
-        cModule *configurator = getParentModule()->getSubmodule("configurator");
-        if (configurator)
-        {
-          auto *configNode = dynamic_cast<inet::Ipv4NetworkConfigurator *>(configurator);
-          configNode->configureAllInterfaces();
-          configNode->configureAllRoutingTables();
-          EV << "=== TOPOLOGY DEBUG ===" << endl;
-          cModule *simulation = cSimulation::getActiveSimulation()->getSystemModule();
-          for (cModule::SubmoduleIterator it(simulation); !it.end(); ++it)
-          {
-            cModule *submod = *it;
-            if (submod->getProperties()->getAsBool("networkNode"))
-            {
-              EV << "Found network node: " << submod->getFullPath() << endl;
-              auto *ift = dynamic_cast<inet::IInterfaceTable *>(submod->getSubmodule("interfaceTable"));
-              if (ift)
-              {
-                EV << "  Has " << ift->getNumInterfaces() << " interfaces" << endl;
-                for (int i = 0; i < ift->getNumInterfaces(); i++)
-                {
-                  auto *iface = ift->getInterface(i);
-                  EV << "    " << iface << std::endl;
-                  EV << " Trying to reconfigure interfaces..." << std::endl;
-                  if (configNode)
-                  {
-                    EV << "  Configurator found" << std::endl;
-                    // configNode->configureInterface(iface);
-                    EV << " Iface after config call: " << iface << std::endl;
-                  }
-                }
-              }
-            }
-          }
-        }
+        
       }
       if (cmd->getCmdType() == MOBILITY_CMD_ADD_RADIO_VEH_NODE)
       {
@@ -168,7 +133,7 @@ namespace omnetpp_federate
         {
           nodeId = cmd->getNodeId(i);
           position = cmd->getPosition(i);
-          EV << "MosaicScenarioManager ADD_NODES: " << nodeId
+          EV_DEBUG << "MosaicScenarioManager ADD_NODES: " << nodeId
              << " at position " << position.x << "," << position.y
              << std::endl;
           addNode(nodeId, position);
@@ -180,7 +145,7 @@ namespace omnetpp_federate
         {
           nodeId = cmd->getNodeId(i);
           position = cmd->getPosition(i);
-          EV << "MosaicScenarioManager ADD_RSU_NODES: " << nodeId
+          EV_DEBUG << "MosaicScenarioManager ADD_RSU_NODES: " << nodeId
              << " at position " << position.x << "," << position.y
              << std::endl;
           addRsuNode(nodeId, position);
@@ -192,7 +157,7 @@ namespace omnetpp_federate
         {
           nodeId = cmd->getNodeId(i);
           position = cmd->getPosition(i);
-          EV << "MosaicScenarioManager ADD_WIRED_NODES: " << nodeId
+          EV_DEBUG << "MosaicScenarioManager ADD_WIRED_NODES: " << nodeId
              << " at position " << position.x << "," << position.y
              << std::endl;
           addWiredNode(nodeId, position);
@@ -204,7 +169,7 @@ namespace omnetpp_federate
         {
           nodeId = cmd->getNodeId(i);
           position = cmd->getPosition(i);
-          EV << "MosaicScenarioManager CONFIGURE_NODE_B: " << nodeId << " at position "
+          EV_DEBUG << "MosaicScenarioManager CONFIGURE_NODE_B: " << nodeId << " at position "
              << position.x << "," << position.y << " (configured but not added to simulation yet)" << std::endl;
           addNodeB(nodeId, position);
         }
@@ -216,8 +181,8 @@ namespace omnetpp_federate
           nodeId = cmd->getNodeId(i);
           position = cmd->getPosition(i);
           EV_DEBUG << "MosaicScenarioManager MOVE_NODES: " << nodeId
-                   << " to position " << position.x << "," << position.y
-                   << std::endl;
+             << " to position " << position.x << "," << position.y
+             << std::endl;
           moveNode(nodeId, position);
         }
       }
@@ -335,7 +300,7 @@ namespace omnetpp_federate
     {
       // Add submodule vector with initial size to accommodate this node
       parentmod->addSubmoduleVector(name.c_str(), 1);
-      EV << "Added submodule vector \"" << name << "\" with size " << (1)
+      EV_DEBUG << "Added submodule vector \"" << name << "\" with size " << (1)
          << std::endl;
       nodeVectorIndex = 0; // Reset index to 0 for new vector
     }
@@ -344,10 +309,10 @@ namespace omnetpp_federate
       nodeVectorIndex = parentmod->getSubmoduleVectorSize(name.c_str());
       // Expand existing vector if needed
       parentmod->setSubmoduleVectorSize(name.c_str(), nodeVectorIndex + 1);
-      EV << "Expanded submodule vector \"" << name << "\" to size "
+      EV_DEBUG << "Expanded submodule vector \"" << name << "\" to size "
          << (nodeVectorIndex + 1) << std::endl;
     }
-    EV << "Creating module of type \"" << type << "\" with name \"" << name
+    EV_DEBUG << "Creating module of type \"" << type << "\" with name \"" << name
        << "\" at index " << nodeVectorIndex << " in parent module \""
        << parentmod->getFullName() << "\"" << std::endl;
     auto *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex);
@@ -356,19 +321,19 @@ namespace omnetpp_federate
     // MosaicMobility Since the gNodeB hardcodes StationaryMobility, we'll handle
     // this in addNodeB method
 
-    mod->finalizeParameters();
     mod->getDisplayString().parse(displayString.c_str());
 
     // For gNodeB, don't schedule start yet - we need to replace mobility first
     if (type != nodeBModuleType)
     {
 
+      mod->finalizeParameters();
       mod->buildInside();
       mod->scheduleStart(simTime());
     }
     else
     {
-      EV << mod->par("nodeType") << " is a gNodeB, not scheduling start yet"
+      EV_DEBUG << mod->par("nodeType") << " is a gNodeB, not scheduling start yet"
          << std::endl;
     }
 
@@ -414,33 +379,10 @@ namespace omnetpp_federate
       mobility->setNextPosition(position);
     }
 
-    // Configure cellular parameters if cellular NIC exists
-    auto *cellularModule = newNode->getSubmodule("cellularNic");
-    // if (cellularModule != nullptr) {
-    //   // Set unique cellular identifiers for Simu5G registration
-    //   newNode->par("macNodeId") = nodeId + 1000; // Ensure unique MAC node ID
-    //   newNode->par("masterId") = 1;  // Connect to first gNodeB (master)
-    //   newNode->par("macCellId") = 1; // Default cell ID
 
-    //   EV << "Configured cellular parameters for vehicle " << nodeId
-    //      << " macNodeId: " << (nodeId + 1000) << std::endl;
-
-    //   // Check if IP2Nic submodule exists
-    //   auto *ip2nicModule = cellularModule->getSubmodule("ip2nic");
-    //   if (ip2nicModule != nullptr) {
-    //     EV << "Vehicle " << nodeId << " has IP2Nic module for binder
-    //     registration"
-    //        << std::endl;
-    //   } else {
-    //     EV << "WARNING: Vehicle " << nodeId
-    //        << " cellular NIC has no IP2Nic module!" << std::endl;
-    //   }
-    // } else {
-    //   EV << "Vehicle " << nodeId << " has no cellular NIC module" << std::endl;
-    // }
 
     newNode->callInitialize();
-    EV << "MosaicScenarioManager added vehicle " << nodeId << " at position "
+    EV_DEBUG << "MosaicScenarioManager added vehicle " << nodeId << " at position "
        << position.x << "," << position.y << " at time " << simTime()
        << std::endl;
   }
@@ -521,7 +463,6 @@ namespace omnetpp_federate
       newNode->getDisplayString().parse(displayStr.c_str());
     }
 
-
     // Replace the hardcoded StationaryMobility with MosaicMobility
     auto *oldMobility = newNode->getSubmodule("mobility");
     if (oldMobility)
@@ -545,17 +486,11 @@ namespace omnetpp_federate
           mobility->setExternalId(nodeId);
           mobility->setNextPosition(position); // This sets the position properly
 
-          EV << "MosaicMobility created for nodeB " << nodeId << " at position "
+          EV_DEBUG << "MosaicMobility created for nodeB " << nodeId << " at position "
              << position.x << "," << position.y << std::endl;
         }
       }
     }
-    // Add initial macCellId
-    // TODO: This get's overwritten if using dynamicAssociationMode (maybe set in
-    // ned)
-    newNode->par("macCellId") = nodeId + 1;
-    newNode->par("macNodeId") = nodeId + 1;
-
     // Now establish PPP connection to UPF for cellular traffic routing
     cModule *upf = getParentModule()->getSubmodule("upf");
     if (upf && newNode)
@@ -585,7 +520,7 @@ namespace omnetpp_federate
         gnbPppOut->connectTo(upfPppIn, channel1);
         upfPppOut->connectTo(gnbPppIn, channel2);
 
-        EV << "Connected gNodeB " << nodeId << " to UPF via pppg[" << upfPppIndex
+        EV_DEBUG << "Connected gNodeB " << nodeId << " to UPF via pppg[" << upfPppIndex
            << "] with Eth10G channels for 5G core network routing" << std::endl;
 
         // Don't use rebuildInside() - create the PPP interface manually
@@ -621,14 +556,13 @@ namespace omnetpp_federate
 
         pppPhysOut->connectTo(upfPppOut);
         upfPppIn->connectTo(pppPhysIn);
-        
+
         // Initialize PPP interface but don't start the NodeB yet
         newPppIf->scheduleStart(simTime());
         newPppIf->callInitialize();
 
         // DO NOT call newNode->scheduleStart() or newNode->callInitialize() yet
         // These will be called later in addAllNodeBsToSimulation()
-
       }
       else
       {
@@ -642,8 +576,8 @@ namespace omnetpp_federate
     config.nodeId = nodeId;
     config.position = position;
     pendingNodeBs.push_back(config);
-    
-    EV << "NodeB " << nodeId << " configured (but not started) at position " << position.x << "," << position.y 
+
+    EV_DEBUG << "NodeB " << nodeId << " configured (but not started) at position " << position.x << "," << position.y
        << ". Total pending: " << pendingNodeBs.size() << std::endl;
   }
 
@@ -667,8 +601,8 @@ namespace omnetpp_federate
         mm->setNextPosition(position);
       }
       EV_DEBUG << "MosaicScenarioManager moved vehicle " << nodeId
-               << " to position " << position.x << "," << position.y
-               << " at time " << simTime() << std::endl;
+         << " to position " << position.x << "," << position.y
+         << " at time " << simTime() << std::endl;
     }
   }
 
@@ -703,7 +637,7 @@ namespace omnetpp_federate
       mod->callFinish();
       mod->deleteModule();
 
-      EV << "MosaicScenarioManager removed node " << nodeId << " at time "
+      EV_DEBUG << "MosaicScenarioManager removed node " << nodeId << " at time "
          << simTime() << std::endl;
     }
   }
@@ -752,7 +686,7 @@ namespace omnetpp_federate
         packet->insertAtFront(chunk);
 
         send(packet, "mosaicProxyOut", nodeId);
-        EV << "MosaicScenarioManager send " << (isCellular ? "cellular" : "wifi")
+        EV_DEBUG << "MosaicScenarioManager send " << (isCellular ? "cellular" : "wifi")
            << " message " << msgId << " from node " << nodeId << " at time "
            << simTime() << std::endl;
       }
@@ -776,10 +710,9 @@ namespace omnetpp_federate
       return;
     }
     int nodeId = cmd->getNodeId();
-    EV << "MosaicScenarioManager configure radio on node " << nodeId
+    EV_DEBUG << "MosaicScenarioManager configure radio on node " << nodeId
        << std::endl;
-    // Print the configuration details
-    EV << cmd << std::endl;
+
     cModule *mod = getManagedModule(nodeId);
     if (mod == nullptr)
     {
@@ -834,7 +767,6 @@ namespace omnetpp_federate
       mobility->setNextPosition(position);
     }
 
-
     // Connect wired node to Ethernet switch for network connectivity
     auto *parentmod = getParentModule();
     auto *ethernetSwitch = parentmod->getSubmodule("serverGateway");
@@ -842,10 +774,10 @@ namespace omnetpp_federate
     {
       // Get the next available index for switch gates
       int gateSize = ethernetSwitch->gateSize("ethg");
-      EV << "Ethernet switch current ethg gate size: " << gateSize << std::endl;
+      EV_DEBUG << "Ethernet switch current ethg gate size: " << gateSize << std::endl;
       ethernetSwitch->setGateSize("ethg", gateSize); // Ensure gate size is set
-      int switchEthIndex = gateSize; // Next available index
-      EV << "Connecting wired node " << nodeId
+      int switchEthIndex = gateSize;                 // Next available index
+      EV_DEBUG << "Connecting wired node " << nodeId
          << " to Ethernet switch at ethg index " << switchEthIndex << std::endl;
 
       // Expand switch gate vector to accommodate new connection
@@ -867,15 +799,16 @@ namespace omnetpp_federate
         nodeEthOut->connectTo(switchEthIn, channel1);
         switchEthOut->connectTo(nodeEthIn, channel2);
 
-        EV << "Connected wired node " << nodeId << " to Ethernet switch via ethg[" << switchEthIndex
+        EV_DEBUG << "Connected wired node " << nodeId << " to Ethernet switch via ethg[" << switchEthIndex
            << "] with Eth10G channels for network connectivity" << std::endl;
 
         // Create Ethernet interface on the switch for this connection
         cModuleType *ethType = cModuleType::get("inet.linklayer.ethernet.EthernetInterface");
-        if (ethType) {
+        if (ethType)
+        {
           int ethIfaceIndex = ethernetSwitch->getSubmoduleVectorSize("eth");
           EV << "Creating Ethernet interface eth[" << ethIfaceIndex << "] on switch" << std::endl;
-          
+
           // Set the vector size for the eth[] submodule vector
           ethernetSwitch->setSubmoduleVectorSize("eth", ethIfaceIndex + 1);
           cModule *newEthIf = ethType->create("eth", ethernetSwitch, ethIfaceIndex);
@@ -885,12 +818,13 @@ namespace omnetpp_federate
 
           // Connect to switch's internal link interface dispatcher (li)
           cModule *li = ethernetSwitch->getSubmodule("li");
-          if (li) {
+          if (li)
+          {
             int currentInSize = li->gateSize("in");
             int currentOutSize = li->gateSize("out");
             li->setGateSize("in", currentInSize + 1);
             li->setGateSize("out", currentOutSize + 1);
-            
+
             cGate *ethUpperOut = newEthIf->gate("upperLayerOut");
             cGate *ethUpperIn = newEthIf->gate("upperLayerIn");
             cGate *liIn = li->gate("in", currentInSize);
@@ -904,24 +838,18 @@ namespace omnetpp_federate
           cGate *ethPhysOut = newEthIf->gate("phys$o");
           cGate *ethPhysIn = newEthIf->gate("phys$i");
 
-          // Debug  physical gate connections
-          EV << "Debugging Ethernet interface physical gates on switch:" << std::endl;
-          EV << "  eth[" << ethIfaceIndex << "].phys$o connected: "
-             << (ethPhysOut->isConnected() ? "YES" : "NO") << std::endl;
-          EV << "  eth[" << ethIfaceIndex << "].phys$i connected: "
-             << (ethPhysIn->isConnected() ? "YES" : "NO") << std::endl; 
-          EV << ethPhysIn << std::endl;
-          EV << ethPhysOut << std::endl;
 
           ethPhysOut->connectTo(switchEthOut);
           switchEthIn->connectTo(ethPhysIn);
-          
+
           // Initialize the Ethernet interface
           newEthIf->scheduleStart(simTime());
           newEthIf->callInitialize();
-          
+
           EV << "Ethernet interface created on switch for wired node " << nodeId << std::endl;
-        } else {
+        }
+        else
+        {
           EV_ERROR << "Failed to find EthernetInterface type for switch connection" << std::endl;
         }
       }
@@ -932,212 +860,261 @@ namespace omnetpp_federate
       newNode->scheduleStart(simTime());
       newNode->callInitialize();
     }
-    //   auto *routingTable = dynamic_cast<inet::Ipv4RoutingTable*>(newNode->getSubmodule("routingTable"));
-    //     auto *interfaceTable = dynamic_cast<inet::IInterfaceTable*>(newNode->getSubmodule("interfaceTable"));
-    // if (routingTable) {
-    //     // Create default route: 0.0.0.0/0 via 10.5.0.1
-    //     auto *defaultRoute = new inet::Ipv4Route();
-    //     defaultRoute->setDestination(inet::Ipv4Address("0.0.0.0"));
-    //     defaultRoute->setNetmask(inet::Ipv4Address("0.0.0.0"));
-    //     defaultRoute->setGateway(inet::Ipv4Address("10.5.0.1"));
-    //     defaultRoute->setInterface(interfaceTable->findInterfaceByName("eth"));
-    //     defaultRoute->setMetric(1);
-    //     routingTable->addRoute(defaultRoute);
 
-    //     EV << "Added default route for wired node " << nodeId << " via 10.5.0.1" << std::endl;
-    // }
-    EV << "=== GATE CONNECTION DEBUG ===" << endl;
-    auto *ethInterface = newNode->getSubmodule("eth");
-    if (ethInterface)
-    {
-      EV << "Eth module exists" << endl;
-
-      // Check if eth.phys gates are connected
-      if (ethInterface->hasGate("phys$o"))
-      {
-        cGate *physOut = ethInterface->gate("phys$o");
-        EV << "eth.phys$o connected: " << (physOut->isConnected() ? "YES" : "NO") << endl;
-      }
-
-      // Check the interface table registration
-      auto *ift = dynamic_cast<inet::IInterfaceTable *>(newNode->getSubmodule("interfaceTable"));
-      if (ift)
-      {
-        EV << "Interface table found with " << ift->getNumInterfaces() << " interfaces" << endl;
-        for (int i = 0; i < ift->getNumInterfaces(); i++)
-        {
-          auto *iface = ift->getInterface(i);
-          EV << "Interface " << i << ": " << iface->getInterfaceName()
-             << " (wireless: " << iface->isWireless() << ")" << endl;
-          // Debug the string comparison
-          std::string ifaceName = iface->getInterfaceName();
-          EV << "  Interface name length: " << ifaceName.length() << endl;
-          EV << "  String comparison with 'eth': " << (ifaceName == "eth" ? "MATCH" : "NO MATCH") << endl;
-          EV << "  Is loopback: " << (iface->isLoopback() ? "YES" : "NO") << endl;
-          EV << "  Is wireless: " << (iface->isWireless() ? "YES" : "NO") << endl;
-
-          // Check the actual condition
-          if (ifaceName == "eth")
-          {
-            EV << "  INSIDE ETH CONDITION - this should appear!" << endl;
-            EV << "  NodeInputGateId: " << iface->getNodeInputGateId() << endl;
-            EV << "  NodeOutputGateId: " << iface->getNodeOutputGateId() << endl;
-            int inGateId = iface->getNodeInputGateId();
-            int outGateId = iface->getNodeOutputGateId();
-            cGate *inGate = newNode->gate(inGateId);
-            cGate *outGate = newNode->gate(outGateId);
-            EV << "Gate " << inGateId << " (" << inGate->getFullName() << ") connected: " << (inGate->isConnected() ? "YES" : "NO") << endl;
-            if (inGate->isConnected())
-            {
-              EV << "  Connected from: " << inGate->getPreviousGate()->getOwnerModule()->getFullPath() << endl;
-            }
-
-            EV << "Gate " << outGateId << " (" << outGate->getFullName() << ") connected: " << (outGate->isConnected() ? "YES" : "NO") << endl;
-            if (outGate->isConnected())
-            {
-              EV << "  Connected to: " << outGate->getNextGate()->getOwnerModule()->getFullPath() << endl;
-            }
-          }
-          else
-          {
-            EV << "  NOT IN ETH CONDITION - why?" << endl;
-          }
-
-          // Also check without string comparison as backup
-          if (!iface->isLoopback() && !iface->isWireless())
-          {
-            EV << "  This is a wired interface - backup check:" << endl;
-            EV << "  NodeInputGateId: " << iface->getNodeInputGateId() << endl;
-            EV << "  NodeOutputGateId: " << iface->getNodeOutputGateId() << endl;
-          }
-        }
-      }
-    }
-
-    EV << "MosaicScenarioManager added wired node " << nodeId << " at position "
+    EV_DEBUG << "MosaicScenarioManager added wired node " << nodeId << " at position "
        << position.x << "," << position.y << " at time " << simTime()
        << std::endl;
   }
 
-
-
   void MosaicScenarioManager::configureX2Connections()
   {
     EV << "Configuring X2 connections between " << pendingNodeBs.size() << " NodeBs" << std::endl;
-    
-    if (pendingNodeBs.size() < 2) {
-      EV << "Less than 2 NodeBs, no X2 connections needed" << std::endl;
-      return;
+
+    if (pendingNodeBs.size() < 2)
+    {
+      EV_DEBUG << "Less than 2 NodeBs, no X2 connections needed" << std::endl;
     }
-    
-    // Create X2 connections between NodeBs
-    // We'll connect NodeBs that are within a reasonable distance (e.g., 2000m)
-    const double maxX2Distance = 2000.0; // Maximum distance for X2 connections in meters
-    
-    for (size_t i = 0; i < pendingNodeBs.size(); i++) {
-      for (size_t j = i + 1; j < pendingNodeBs.size(); j++) {
+
+    // Create physical X2 connections between NodeBs
+    for (size_t i = 0; i < pendingNodeBs.size(); i++)
+    {
+      for (size_t j = i + 1; j < pendingNodeBs.size(); j++)
+      {
         int nodeB1 = pendingNodeBs[i].nodeId;
         int nodeB2 = pendingNodeBs[j].nodeId;
-        
+
         // Calculate distance between NodeBs
         double distance = sqrt(pow(pendingNodeBs[i].position.x - pendingNodeBs[j].position.x, 2) +
-                              pow(pendingNodeBs[i].position.y - pendingNodeBs[j].position.y, 2));
-        
-        // Only connect NodeBs within reasonable distance
-        if (distance <= maxX2Distance) {
-          EV << "Creating X2 connection between NodeB " << nodeB1 
-             << " and NodeB " << nodeB2 << " (distance: " << distance << "m)" << std::endl;
-          
-          createX2Connection(nodeB1, nodeB2);
-        } else {
-          EV << "NodeBs " << nodeB1 << " and " << nodeB2 
-             << " are too far apart (" << distance << "m > " << maxX2Distance << "m) for X2 connection" << std::endl;
+                               pow(pendingNodeBs[i].position.y - pendingNodeBs[j].position.y, 2));
+
+        EV_DEBUG << "Creating X2 connection between NodeB " << nodeB1
+                 << " and NodeB " << nodeB2 << " (distance: " << distance << "m)" << std::endl;
+
+        createX2Connection(nodeB1, nodeB2);
+      }
+    }
+
+    // Now build all NodeBs so we can access their submodules
+    for (const auto &config : pendingNodeBs)
+    {
+      cModule *nodeB = getManagedModule(config.nodeId);
+      if (nodeB)
+      {
+        nodeB->buildInside();
+      }
+    }
+
+    // Create mapping of nodeB IDs to their index for X2App configuration
+    std::map<int, int> nodeBIdToIndex;
+    for (size_t i = 0; i < pendingNodeBs.size(); i++)
+    {
+      nodeBIdToIndex[pendingNodeBs[i].nodeId] = i;
+    }
+
+    // Configure X2Apps for each nodeB
+    for (size_t i = 0; i < pendingNodeBs.size(); i++)
+    {
+      cModule *nodeB = getManagedModule(pendingNodeBs[i].nodeId);
+      if (!nodeB)
+        continue;
+
+      int x2AppIndex = 0;
+
+      // Configure X2App for each peer nodeB
+      for (size_t j = 0; j < pendingNodeBs.size(); j++)
+      {
+        if (i == j)
+          continue; // Skip self
+
+        int peerNodeId = pendingNodeBs[j].nodeId;
+        EV_DEBUG << "Configuring X2App[" << x2AppIndex << "] on NodeB " << pendingNodeBs[i].nodeId
+                 << " to connect to NodeB " << peerNodeId << std::endl;
+
+        // Get the X2App instance
+        auto *x2App = nodeB->getSubmodule("x2App", x2AppIndex);
+        if (x2App)
+        {
+          auto *client = x2App->getSubmodule("client");
+          auto *server = x2App->getSubmodule("server");
+
+          if (server)
+          {
+            // Set unique port for this X2App server
+            server->par("localPort") = 5000 + x2AppIndex;
+            EV_DEBUG << "  Server port set to: " << (5000 + x2AppIndex) << std::endl;
+          }
+
+          if (client)
+          {
+            // Set connectAddress to peer nodeB's x2ppp interface
+            // Format: "gnb[peerid]$x2ppp$index"
+            int peerIndex = nodeBIdToIndex[peerNodeId];
+            int peerX2AppIndex = getX2AppIndexForPeer(peerNodeId, pendingNodeBs[i].nodeId);
+            std::string connectAddr = "gnb[" + std::to_string(peerIndex) + "]%x2ppp" + std::to_string(peerX2AppIndex);
+            client->par("connectAddress") = connectAddr.c_str();
+            EV_DEBUG << "  Client connectAddress set to: " << connectAddr << std::endl;
+          }
         }
+
+        x2AppIndex++;
       }
     }
   }
-  
+
   void MosaicScenarioManager::createX2Connection(int nodeB1Id, int nodeB2Id)
   {
     cModule *nodeB1 = getManagedModule(nodeB1Id);
     cModule *nodeB2 = getManagedModule(nodeB2Id);
-    
-    if (!nodeB1 || !nodeB2) {
-      EV_ERROR << "Cannot create X2 connection: NodeB " << nodeB1Id 
+
+    if (!nodeB1 || !nodeB2)
+    {
+      EV_ERROR << "Cannot create X2 connection: NodeB " << nodeB1Id
                << " or NodeB " << nodeB2Id << " not found" << std::endl;
       return;
     }
-    
-    try {
+
+    try
+    {
       // Use dedicated X2 gates for NodeB-to-NodeB connections
       // Get current number of X2 connections to add new ones
       int nodeB1X2Count = nodeB1->gateSize("x2$o");
       int nodeB2X2Count = nodeB2->gateSize("x2$o");
-      
+
       // Expand X2 gate vectors for new connections
       nodeB1->setGateSize("x2", nodeB1X2Count + 1);
       nodeB2->setGateSize("x2", nodeB2X2Count + 1);
-      
+
       // Get the new X2 gates for connection
       cGate *nodeB1X2Out = nodeB1->gate("x2$o", nodeB1X2Count);
       cGate *nodeB1X2In = nodeB1->gate("x2$i", nodeB1X2Count);
       cGate *nodeB2X2Out = nodeB2->gate("x2$o", nodeB2X2Count);
       cGate *nodeB2X2In = nodeB2->gate("x2$i", nodeB2X2Count);
-      
+
       // Create Ethernet channels for X2 connection
       cChannelType *channelType = cChannelType::get("inet.node.ethernet.Eth10G");
-      if (channelType) {
+      if (channelType)
+      {
         cChannel *channel1 = channelType->create("X2-nodeB1-to-nodeB2");
         cChannel *channel2 = channelType->create("X2-nodeB2-to-nodeB1");
-        
+
         // Connect the NodeBs directly via X2: nodeB1.x2[i] <--> nodeB2.x2[j]
         nodeB1X2Out->connectTo(nodeB2X2In, channel1);
         nodeB2X2Out->connectTo(nodeB1X2In, channel2);
-        
-        EV << "X2 connection established: NodeB " << nodeB1Id << ".x2[" << nodeB1X2Count 
+
+        EV << "X2 connection established: NodeB " << nodeB1Id << ".x2[" << nodeB1X2Count
            << "] <--> NodeB " << nodeB2Id << ".x2[" << nodeB2X2Count << "]" << std::endl;
-        
+
         // Check the x2ppp submodules vector to check the size
         auto *x2ppp1 = nodeB1->getSubmodule("x2ppp");
         auto *x2ppp2 = nodeB2->getSubmodule("x2ppp");
-        if (!x2ppp1) {
+        if (!x2ppp1)
+        {
           EV_ERROR << "Failed to find x2ppp submodule for NodeB " << nodeB1Id << std::endl;
         }
-        if (!x2ppp2) {
+        if (!x2ppp2)
+        {
           EV_ERROR << "Failed to find x2ppp submodule for NodeB " << nodeB2Id << std::endl;
         }
-        if (x2ppp1 && x2ppp2) {
+        if (x2ppp1 && x2ppp2)
+        {
           int x2ppp1Size = nodeB1->getSubmoduleVectorSize("x2ppp");
           int x2ppp2Size = nodeB2->getSubmoduleVectorSize("x2ppp");
           EV << "NodeB " << nodeB1Id << " x2ppp size: " << x2ppp1Size << std::endl;
           EV << "NodeB " << nodeB2Id << " x2ppp size: " << x2ppp2Size << std::endl;
         }
-      } else {
+      }
+      else
+      {
         EV_ERROR << "Failed to find Eth10G channel type for X2 connection" << std::endl;
       }
-      
-    } catch (const std::exception& e) {
-      EV_ERROR << "Error creating X2 connection between NodeB " << nodeB1Id 
+    }
+    catch (const std::exception &e)
+    {
+      EV_ERROR << "Error creating X2 connection between NodeB " << nodeB1Id
                << " and NodeB " << nodeB2Id << ": " << e.what() << std::endl;
     }
   }
 
-
   void MosaicScenarioManager::addAllNodeBsToSimulation()
   {
     EV << "Adding all " << pendingNodeBs.size() << " configured NodeBs to simulation simultaneously" << std::endl;
-    
+
     // Add all configured NodeBs to the simulation
-    for (const auto& config : pendingNodeBs) {
-      EV << "Adding NodeB " << config.nodeId << " at position " 
+    for (const auto &config : pendingNodeBs)
+    {
+      EV_DEBUG << "Adding NodeB " << config.nodeId << " at position "
          << config.position.x << "," << config.position.y << " to simulation" << std::endl;
-      addNodeBToSimulation(config.nodeId, const_cast<inet::Coord&>(config.position));
+      // addNodeBToSimulation(config.nodeId, const_cast<inet::Coord&>(config.position));
+      cModule *newNode = getManagedModule(config.nodeId);
+      if (!newNode)
+      {
+        error("NodeB %d not found for simulation initialization", config.nodeId);
+      }
+
     }
-    
+
+    int numInitStages = inet::NUM_INIT_STAGES;
+    // Initialize all NodeBs after they are added
+    bool reconfigured = false;
+    for (int stage = 0; stage < inet::INITSTAGE_NETWORK_LAYER; ++stage)
+    {
+      for (const auto &config : pendingNodeBs)
+      {
+        cModule *newNode = getManagedModule(config.nodeId);
+        if (newNode)
+        {
+          newNode->callInitialize(stage);
+        }
+      }
+    }
+    auto *parentmod = getParentModule();
+    auto *ipconfig = parentmod->getSubmodule("configurator");
+    if (ipconfig)
+    {
+      ipconfig->deleteModule();
+    }
+    cModuleType *configuratorType = cModuleType::get("inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator");
+    cModule *newConfigurator = configuratorType->create("configurator", parentmod);
+
+    // Set parameters (copy from original configuration)
+    // newConfigurator->par("config") = "xmldoc(\"network_config.xml\")";
+    newConfigurator->finalizeParameters();
+    newConfigurator->buildInside();
+    newConfigurator->callInitialize();
+
+    cModule *configurator = getParentModule()->getSubmodule("configurator");
+    if (configurator)
+    {
+      auto *configNode = dynamic_cast<inet::Ipv4NetworkConfigurator *>(configurator);
+      configNode->configureAllInterfaces();
+      configNode->configureAllRoutingTables();
+    }
+
+    for (int stage = inet::INITSTAGE_NETWORK_LAYER; stage < numInitStages; ++stage)
+    {
+      for (const auto &config : pendingNodeBs)
+      {
+        cModule *newNode = getManagedModule(config.nodeId);
+        if (newNode)
+        {
+          newNode->callInitialize(stage);
+        }
+      }
+    }
+
+    for (const auto &config : pendingNodeBs)
+    {
+      cModule *newNode = getManagedModule(config.nodeId);
+      if (newNode)
+      {
+        newNode->scheduleStart(simTime());
+      }
+    }
+
     // Clear the pending list as all NodeBs have been added
     pendingNodeBs.clear();
-    
-    EV << "All NodeBs successfully added to simulation" << std::endl;
+
+    EV << "All NodeBs successfully added to simulation with X2Apps configured" << std::endl;
   }
 
   void MosaicScenarioManager::addNodeBToSimulation(int nodeId, inet::Coord &position)
@@ -1147,6 +1124,7 @@ namespace omnetpp_federate
     {
       error("NodeB %d not found for simulation initialization", nodeId);
     }
+    // newNode->par("numX2Apps") = 1;
     newNode->buildInside();
 
     // Get the interface and routing table
@@ -1156,43 +1134,85 @@ namespace omnetpp_federate
         newNode->getSubmodule("ipv4")->getSubmodule("routingTable"));
 
     // Get the global IP configurator
-    auto *ipconfig = check_and_cast<inet::Ipv4NetworkConfigurator *>(
-        getParentModule()->getSubmodule("configurator"));
-    if (ipconfig)
+    // auto *ipconfig = check_and_cast<inet::Ipv4NetworkConfigurator *>(
+    //     getParentModule()->getSubmodule("configurator"));
+    // if (ipconfig)
+    // {
+    //   EV << "Starting IP configuration for gNodeB " << nodeId << std::endl;
+    //   if (ift && rt)
+    //   {
+    //     EV << "Found interface table with " << ift->getNumInterfaces() << " interfaces and routing table" << std::endl;
+    //     for (int i = 0; i < ift->getNumInterfaces(); i++)
+    //     {
+    //       auto *iface = ift->getInterface(i);
+    //       EV << "Configuring interface " << i << ": " << iface->getInterfaceName() << std::endl;
+    //       ipconfig->configureInterface(iface);
+    //       EV << "Interface " << i << " configured successfully" << std::endl;
+    //       // Print assigned IP address
+    //       EV << "Interface details: " << iface << std::endl;
+    //     }
+    //     EV << "Configuring routing table for gNodeB " << nodeId << std::endl;
+    //     ipconfig->configureRoutingTable(rt);
+    //     EV << "Routing table configured successfully for gNodeB " << nodeId << std::endl;
+    //     EV << "Routing table : " << rt << std::endl;
+    //   }
+    //   else
+    //   {
+    //     EV_ERROR << "Failed to get interface table or routing table for gNodeB " << nodeId << std::endl;
+    //   }
+    // }
+    // else
+    // {
+    //   EV_ERROR << "IP configurator not found for gNodeB " << nodeId << std::endl;
+    // }
+
+    // EV << "NodeB " << nodeId << " successfully added to simulation" << std::endl;
+  }
+
+  int MosaicScenarioManager::getX2AppIndexForPeer(int peerNodeId, int sourceNodeId)
+  {
+    // Find the peer node configuration
+    auto peerIt = std::find_if(pendingNodeBs.begin(), pendingNodeBs.end(),
+                               [peerNodeId](const NodeBConfig &config)
+                               {
+                                 return config.nodeId == peerNodeId;
+                               });
+
+    if (peerIt == pendingNodeBs.end())
     {
-      EV << "Starting IP configuration for gNodeB " << nodeId << std::endl;
-      if (ift && rt)
-      {
-        EV << "Found interface table with " << ift->getNumInterfaces() << " interfaces and routing table" << std::endl;
-        for (int i = 0; i < ift->getNumInterfaces(); i++)
-        {
-          auto *iface = ift->getInterface(i);
-          EV << "Configuring interface " << i << ": " << iface->getInterfaceName() << std::endl;
-          ipconfig->configureInterface(iface);
-          EV << "Interface " << i << " configured successfully" << std::endl;
-          // Print assigned IP address
-          EV << "Interface details: " << iface << std::endl;
-        }
-        EV << "Configuring routing table for gNodeB " << nodeId << std::endl;
-        ipconfig->configureRoutingTable(rt);
-        EV << "Routing table configured successfully for gNodeB " << nodeId << std::endl;
-        EV << "Routing table : " << rt << std::endl;
-      }
-      else
-      {
-        EV_ERROR << "Failed to get interface table or routing table for gNodeB " << nodeId << std::endl;
-      }
-    }
-    else
-    {
-      EV_ERROR << "IP configurator not found for gNodeB " << nodeId << std::endl;
+      EV_ERROR << "getX2AppIndexForPeer: Peer nodeId " << peerNodeId << " not found" << std::endl;
+      return -1;
     }
 
-    // Now initialize and start the NodeB
-    newNode->scheduleStart(simTime());
-    newNode->callInitialize();
-    
-    EV << "NodeB " << nodeId << " successfully added to simulation" << std::endl;
+    // Calculate X2App index for the peer node based on the order of connections
+    // The peer's X2App index is determined by counting how many NodeBs (within range)
+    // come before the source node in the peer's connection list
+    int x2AppIndex = 0;
+    const double maxX2Distance = 2000.0;
+
+    for (const auto &config : pendingNodeBs)
+    {
+      if (config.nodeId == peerNodeId)
+        continue; // Skip the peer itself
+
+      // Calculate distance between peer and this potential connection
+      double distance = sqrt(pow(peerIt->position.x - config.position.x, 2) +
+                             pow(peerIt->position.y - config.position.y, 2));
+
+      if (distance <= maxX2Distance)
+      {
+        // If this is the source node, return the current index
+        if (config.nodeId == sourceNodeId)
+        {
+          return x2AppIndex;
+        }
+        x2AppIndex++;
+      }
+    }
+
+    EV_ERROR << "getX2AppIndexForPeer: Could not find X2App index for connection from "
+             << sourceNodeId << " to " << peerNodeId << std::endl;
+    return -1;
   }
 
 } // namespace omnetpp_federate

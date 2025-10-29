@@ -87,6 +87,9 @@ private:
   virtual void addAllNodeBsToSimulation();
   virtual void addNodeBToSimulation(int nodeId, inet::Coord &position);
   virtual void createX2Connection(int nodeB1Id, int nodeB2Id);
+  
+  // X2App configuration methods
+  int getX2AppIndexForPeer(int peerNodeId, int sourceNodeId);
 };
 
 } // namespace omnetpp_federate
