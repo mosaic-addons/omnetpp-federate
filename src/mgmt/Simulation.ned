@@ -27,10 +27,13 @@ import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
 import inet.node.gpsr.GpsrRouter;
 import inet.node.inet.AdhocHost;
 import inet.node.ethernet.Eth10G;
+import inet.node.inet.Router;
+
 
 import omnetpp_federate.mgmt.MosaicScenarioManager;
 import omnetpp_federate.node.Rsu;
 import omnetpp_federate.node.Vehicle;
+import omnetpp_federate.node.WiredNode;
 
 // Simu5G imports for 5G infrastructure
 import simu5g.nodes.NR.gNodeB;
@@ -45,16 +48,11 @@ import simu5g.common.carrierAggregation.CarrierAggregation;
 network Simulation {
     parameters:
         @display("bgb=440,300");
-        int numNodeBs = default(2); // Number of gNodeBs (5G base stations)
     submodules:
         configurator: Ipv4NetworkConfigurator {
             parameters:
                 @display("p=60,250;is=s");
                 config = xmldoc("network_config.xml");  // External XML config file
-                // assignAddresses = false;                  // Let configurator assign base addresses
-                // addStaticRoutes = true;                  // Add routes between subnets
-                // addDefaultRoutes = true;                 // Add default routes via UPF
-                // addDirectRoutes = true;                  // Direct routes on same subnet
         }
         radioMedium: Ieee80211ScalarRadioMedium {
             parameters:
@@ -83,6 +81,13 @@ network Simulation {
             parameters:
                 @display("p=200,100");
         }
+        
+        // Server gateway - handles both wired nodes and core network connections
+        serverGateway: Router {
+            parameters:
+                @display("p=300,150");
+        }
+
 
         mgmt: MosaicScenarioManager {
             parameters:
@@ -98,15 +103,17 @@ network Simulation {
                 @dynamic;
                 @display("p=309,140");
         }
-        nodeB[numNodeBs]: gNodeB {
+        wired[0]: WiredNode {
+            parameters:
+                @dynamic;
+                @display("p=309,220");
+        }
+        nodeB[0]: gNodeB {
             parameters:
                 @display("p=200,200");
         }
     connections allowunconnected:
-        for i=0..numNodeBs-1 {
-            upf.pppg++ <--> Eth10G<--> nodeB[i].ppp;
-        }
-        //
+      upf.filterGate <--> Eth10G<--> serverGateway.pppg++;
 
         
 }

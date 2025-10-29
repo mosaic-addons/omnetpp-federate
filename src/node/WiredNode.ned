@@ -23,8 +23,9 @@
 package omnetpp_federate.node;
 
 import inet.common.MessageDispatcher;
-import inet.linklayer.ethernet.EthernetEncapsulation;
 import inet.linklayer.ethernet.EthernetInterface;
+import inet.linklayer.ethernet.basic.EthernetEncapsulation;
+
 import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.ipv4.Icmp;
 import inet.networklayer.ipv4.Ipv4NetworkLayer;
@@ -40,11 +41,14 @@ module WiredNode {
         @networkNode;
         @display("bgb=548.6,617.5");
         @display("i=device/server");
-        *.interfaceTableModule = default(absPath(".interfaceTable"));
-        **.routingTableModule = default(absPath(".routingTable"));
+        *.routingTableModule = "^.routingTable";
+        *.interfaceTableModule = "^.interfaceTable";
+        *.numEthInterfaces = default(1);
         udp.icmpModule = absPath(".icmp");
+        ipv4.arp.proxyArpInterfaces = default("");
     gates:
-        inout ethg @labels(EtherFrame-conn);
+        inout pppg @labels(PppFrame-conn) @allowUnconnected; 
+        inout ethg @labels(EtherFrame-conn) @allowUnconnected;
     submodules:
         mobility: MosaicMobility {
             @display("p=468.234,260.82");
@@ -56,37 +60,37 @@ module WiredNode {
         ethernetEncap: EthernetEncapsulation {
             parameters:
                 @display("p=149,452");
+                registerProtocol = true;
         }
         interfaceTable: InterfaceTable {
             parameters:
                 @display("p=62.399998,241.8;is=s");
         }
-        // routing table
         routingTable: Ipv4RoutingTable {
             parameters:
                 @display("p=62.399998,163.8;is=s");
         }
         // network layer
-        networkLayer: Ipv4NetworkLayer {
+        ipv4: Ipv4NetworkLayer {
             parameters:
-                configurator.networkConfiguratorModule = "";
                 @display("p=268,371;q=queue");
+                forwarding = true;
         }
         md: MessageDispatcher {
             parameters:
                 @display("p=268,452;b=500,5,,,,1");
         }
         // UDP
-        icmp: Icmp {
-            @display("p=468.234,152.766");
-        }
+        // icmp: Icmp {
+        //     @display("p=468.234,152.766");
+        // }
         udp: Udp {
             @display("p=268,241");
         }
         proxyApp: MosaicProxyApp {
             @display("p=268,124");
         }
-    connections:
+    connections allowunconnected:
         // Ethernet to Encapsulation layer
         eth.upperLayerOut --> ethernetEncap.lowerLayerIn;
         eth.upperLayerIn <-- ethernetEncap.lowerLayerOut;
@@ -97,11 +101,11 @@ module WiredNode {
         
         ethg <--> eth.phys;
 
-        md.out++ --> networkLayer.ifIn;
-        md.in++ <-- networkLayer.ifOut;
+        md.out++ --> ipv4.ifIn;
+        md.in++ <-- ipv4.ifOut;
 
-        networkLayer.transportOut --> udp.ipIn;
-        networkLayer.transportIn <-- udp.ipOut;
+        ipv4.transportOut --> udp.ipIn;
+        ipv4.transportIn <-- udp.ipOut;
 
         udp.appOut --> proxyApp.socketIn;
         udp.appIn <-- proxyApp.socketOut;
