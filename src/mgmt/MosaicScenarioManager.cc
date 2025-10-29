@@ -1004,24 +1004,6 @@ namespace omnetpp_federate
         EV << "X2 connection established: NodeB " << nodeB1Id << ".x2[" << nodeB1X2Count
            << "] <--> NodeB " << nodeB2Id << ".x2[" << nodeB2X2Count << "]" << std::endl;
 
-        // Check the x2ppp submodules vector to check the size
-        auto *x2ppp1 = nodeB1->getSubmodule("x2ppp");
-        auto *x2ppp2 = nodeB2->getSubmodule("x2ppp");
-        if (!x2ppp1)
-        {
-          EV_ERROR << "Failed to find x2ppp submodule for NodeB " << nodeB1Id << std::endl;
-        }
-        if (!x2ppp2)
-        {
-          EV_ERROR << "Failed to find x2ppp submodule for NodeB " << nodeB2Id << std::endl;
-        }
-        if (x2ppp1 && x2ppp2)
-        {
-          int x2ppp1Size = nodeB1->getSubmoduleVectorSize("x2ppp");
-          int x2ppp2Size = nodeB2->getSubmoduleVectorSize("x2ppp");
-          EV << "NodeB " << nodeB1Id << " x2ppp size: " << x2ppp1Size << std::endl;
-          EV << "NodeB " << nodeB2Id << " x2ppp size: " << x2ppp2Size << std::endl;
-        }
       }
       else
       {
