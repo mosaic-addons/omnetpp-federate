@@ -356,22 +356,34 @@ void MosaicProxyApp::handleCellularConfiguration(
     auto *parent = getParentModule();
     if (parent != nullptr) {
       // Register the IP address with the binder
+      // Check the nr/macNodeId params
+      auto nrMacId = simu5g::MacNodeId(parent->par("nrMacNodeId").intValue());
+      auto macId = simu5g::MacNodeId(parent->par("macNodeId").intValue());
 
-      simu5g::MacNodeId macNodeId =
-          binder->getMacNodeIdFromOmnetId(parent->getId());
+      
+
+      EV << "Parent module macNodeId: " << macId
+         << " nrMacNodeId: " << nrMacId << std::endl;
+      simu5g::MacNodeId macNodeId;
+      if (nrMacId != simu5g::NODEID_NONE) macNodeId = nrMacId;
+      else if (macId != simu5g::NODEID_NONE) macNodeId = macId;
+      else {
+        EV << "No valid macNodeId or nrMacNodeId found for node with id: "
+           << parent->getId() << std::endl;
+      }
       EV << "Got MAC node ID: " << macNodeId
          << " for node with id: " << parent->getId() << std::endl;
       // Associate the received IP address with the MAC node ID
       binder->setMacNodeId(cmd->getIp(), macNodeId);
-      simu5g::MacNodeId test = binder->getMacNodeId(cmd->getIp());
+      simu5g::MacNodeId test = binder->getNrMacNodeId(cmd->getIp());
       EV << "Registered IP address " << cmd->getIp()
          << " with MAC node ID: " << test << std::endl;
     }
 
     EV << "Configured cellular interface IP: " << cmd->getIp()
        << " subnet: " << cmd->getSubnet() << std::endl;
-  } else if (ethIe != nullptr) {
     // If no cellular interface, configure Ethernet interface if available
+  } else if (ethIe != nullptr) {
     if (cmd->getSubnet().isUnspecified()) {
       cmd->setSubnet(inet::Ipv4Address::makeNetmask(16));
     }
