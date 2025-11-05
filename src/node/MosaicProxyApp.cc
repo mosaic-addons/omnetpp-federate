@@ -22,6 +22,7 @@
 
 #include "MosaicProxyApp.h"
 
+#include "common/binder/Binder.h"
 #include "inet/common/Ptr.h"
 #include "inet/common/packet/Message.h"
 #include "inet/common/packet/Packet.h"
@@ -36,7 +37,6 @@
 #include "inet/physicallayer/wireless/ieee80211/packetlevel/Ieee80211ControlInfo_m.h"
 #include "inet/transportlayer/common/L4PortTag_m.h"
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
-#include "common/binder/Binder.h"
 
 #include "msg/MosaicAppPacket_m.h"
 
@@ -77,14 +77,15 @@ void MosaicProxyApp::initialize(int stage) {
           if (tmpIe == nullptr || tmpIe->isLoopback()) {
             continue;
           }
-          EV << "Found interface: " << tmpIe->getFullName() << std::endl;
-          if (!strncmp(tmpIe->getFullName(), "wlan0", 6)) {
+          auto interfaceName = tmpIe->getFullName();
+          EV << "Found interface: " << interfaceName << std::endl;
+          if (std::strcmp(interfaceName, "wlan0") == 0) {
             ie0 = tmpIe;
-          } else if (!strncmp(tmpIe->getFullName(), "wlan1", 6)) {
+          } else if (std::strcmp(interfaceName, "wlan1") == 0) {
             ie1 = tmpIe;
-          } else if (!strncmp(tmpIe->getFullName(), "cellularNic", 11)) {
+          } else if (std::strcmp(interfaceName, "cellularNic") == 0) {
             cellularIe = tmpIe;
-          } else if (!strncmp(tmpIe->getFullName(), "eth", 3)) {
+          } else if (std::strncmp(interfaceName, "eth", 3) == 0) {
             ethIe = tmpIe;
           }
         }
@@ -92,14 +93,16 @@ void MosaicProxyApp::initialize(int stage) {
     }
     // Check if we have wireless interfaces or wired/cellular interfaces
     bool hasWirelessInterfaces = (ie0 != nullptr || ie1 != nullptr);
-    bool hasWiredOrCellularInterface = (ethIe != nullptr || cellularIe != nullptr);
-    
+    bool hasWiredOrCellularInterface =
+        (ethIe != nullptr || cellularIe != nullptr);
+
     if (!hasWirelessInterfaces && !hasWiredOrCellularInterface) {
-      EV_ERROR << "MosaicProxyApp: No supported network interfaces found" << std::endl;
+      EV_ERROR << "MosaicProxyApp: No supported network interfaces found"
+               << std::endl;
       setOperationalState(NOT_OPERATING);
       return;
     }
-    
+
     if (hasWirelessInterfaces) {
       // Initialize wireless radios if available
       if ((radio0 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
@@ -112,16 +115,18 @@ void MosaicProxyApp::initialize(int stage) {
         setOperationalState(NOT_OPERATING);
         return;
       }
-      
+
       // Disconnect all radios initially
       numRadios = 2;
       connectRadios(0);
     } else {
       // For wired-only or cellular-only nodes, set numRadios to 0
       numRadios = 0;
-      EV << "MosaicProxyApp operating in wired/cellular mode without wireless radios" << std::endl;
+      EV << "MosaicProxyApp operating in wired/cellular mode without wireless "
+            "radios"
+         << std::endl;
     }
-    
+
     setOperationalState(OPERATING);
   }
 }
@@ -133,17 +138,20 @@ void MosaicProxyApp::initialize(int stage) {
 void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
                                       const inet::Ipv4Address &destAddr,
                                       int destPort, double delay) {
-  // send message to UDP, with the appropriate control info attached
+  // channelId convention:
+  //   -1 => non-WiFi (cellular or wired)
+  //    n => WiFi channel id; must match radio0Channel or radio1Channel
   auto packet = omnetpp::check_and_cast<MosaicAppPacket *>(msg);
 
   // Allow messages if WiFi radios are available OR if it's a cellular message
   // with cellular interface OR if it's a wired interface
-  bool canSend = (numRadios >= 1) ||
-                 (packet->getChannelId() == -1 && cellularIe != nullptr) ||
-                 (ethIe != nullptr);
+  bool canSend =
+      (numRadios >= 1) || (packet->getChannelId() == -1 &&
+                           (cellularIe != nullptr || ethIe != nullptr));
   if (!canSend) {
-    EV << "No radio/interface available for message " << packet->getMsgId()
-       << " (channelId: " << packet->getChannelId() << ")" << std::endl;
+    EV_ERROR << "No radio/interface available for message "
+             << packet->getMsgId() << " (channelId: " << packet->getChannelId()
+             << ")" << std::endl;
     return;
   }
 
@@ -165,7 +173,6 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         cellularIe->getInterfaceId());
     EV << "Routing packet via cellular interface" << std::endl;
-   
   } else if (numRadios > 0 && channelId == radio0Channel) {
     udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
         ie0->getInterfaceId());
@@ -208,11 +215,16 @@ void MosaicProxyApp::receivePacket(omnetpp::cMessage *msg) {
   EV << "MosaicUDP received packet: ";
 
   auto udp_packet = inet::check_and_cast<inet::Packet *>(msg);
-  auto cPacket =
-      udp_packet->popAtBack<inet::cPacketChunk>(udp_packet->getDataLength())
-          .get()
-          ->getPacket();
-  auto packet = omnetpp::check_and_cast<MosaicAppPacket *>(cPacket);
+
+// Keep the shared chunk alive while accessing the inner cPacket
+  auto chunk =
+      udp_packet->popAtBack<inet::cPacketChunk>(udp_packet->getDataLength());
+  if (!chunk) {
+    EV_ERROR << "Received packet without cPacketChunk payload" << std::endl;
+    return;
+  }
+  auto inner = chunk->getPacket();
+  auto packet = omnetpp::check_and_cast<MosaicAppPacket *>(inner);
 
   EV << "srcNodeId " << packet->getNodeId() << ", msgId " << packet->getMsgId()
      << std::endl;
@@ -245,7 +257,7 @@ void MosaicProxyApp::handleWifiConfiguration(MosaicWifiConfigurationCmd *cmd) {
     // connect the wanted number of radios
     connectRadios(1);
     if (cmd->getNumchannels0() == 1) { // simple case
-      // set channel and power
+                                       // set channel and power
       radio0->setChannelNumber(cmd->getChannel00());
       EV << "Setting channel " << cmd->getChannel00() << " on "
          << radio0->getFullName() << " ("
@@ -331,53 +343,36 @@ void MosaicProxyApp::handleCellularConfiguration(
     cellularIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet());
 
-    // Add default route via cellular
-    // TODO: Check this out
-    auto mosaicNode = this->getParentModule();
-    inet::Ipv4RoutingTable *routingTable;
-    if (mosaicNode != nullptr) {
-      auto sub = mosaicNode->getSubmodule("routingTable");
-      if ((routingTable = dynamic_cast<inet::Ipv4RoutingTable *>(sub))) {
-        auto *defaultRoute = new inet::Ipv4Route();
-        defaultRoute->setDestination(inet::Ipv4Address("0.0.0.0"));
-        defaultRoute->setNetmask(inet::Ipv4Address("0.0.0.0"));
-        defaultRoute->setInterface(cellularIe);
-        routingTable->addRoute(defaultRoute);
-      }
-    }
-
-    EV << "Added default route via cellular interface for vehicle with IP: "
-       << cmd->getIp() << std::endl;
-
     // Get the binder and register the IP address
     simu5g::Binder *binder = omnetpp::check_and_cast<simu5g::Binder *>(
         getSimulation()->getModuleByPath("binder"));
     // Get parent module
     auto *parent = getParentModule();
     if (parent != nullptr) {
+
       // Register the IP address with the binder
       // Check the nr/macNodeId params
       auto nrMacId = simu5g::MacNodeId(parent->par("nrMacNodeId").intValue());
       auto macId = simu5g::MacNodeId(parent->par("macNodeId").intValue());
 
-      
-
-      EV << "Parent module macNodeId: " << macId
-         << " nrMacNodeId: " << nrMacId << std::endl;
+      EV_DEBUG << "Parent module macNodeId: " << macId
+               << " nrMacNodeId: " << nrMacId << std::endl;
       simu5g::MacNodeId macNodeId;
-      if (nrMacId != simu5g::NODEID_NONE) macNodeId = nrMacId;
-      else if (macId != simu5g::NODEID_NONE) macNodeId = macId;
+      if (nrMacId != simu5g::NODEID_NONE)
+        macNodeId = nrMacId;
+      else if (macId != simu5g::NODEID_NONE)
+        macNodeId = macId;
       else {
-        EV << "No valid macNodeId or nrMacNodeId found for node with id: "
-           << parent->getId() << std::endl;
+        EV_DEBUG << "No valid macNodeId or nrMacNodeId found for node with id: "
+                 << parent->getId() << std::endl;
       }
-      EV << "Got MAC node ID: " << macNodeId
-         << " for node with id: " << parent->getId() << std::endl;
+      EV_DEBUG << "Got MAC node ID: " << macNodeId
+               << " for node with id: " << parent->getId() << std::endl;
       // Associate the received IP address with the MAC node ID
       binder->setMacNodeId(cmd->getIp(), macNodeId);
       simu5g::MacNodeId test = binder->getNrMacNodeId(cmd->getIp());
-      EV << "Registered IP address " << cmd->getIp()
-         << " with MAC node ID: " << test << std::endl;
+      EV_DEBUG << "Registered IP address " << cmd->getIp()
+               << " with MAC node ID: " << test << std::endl;
     }
 
     EV << "Configured cellular interface IP: " << cmd->getIp()
@@ -391,27 +386,6 @@ void MosaicProxyApp::handleCellularConfiguration(
         cmd->getIp());
     ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet());
-    // ethIe->setBroadcast(true);
-    // Add default route via Ethernet
-    // TODO: Check this out
-    auto mosaicNode = this->getParentModule();
-    inet::Ipv4RoutingTable *routingTable;
-    if (mosaicNode != nullptr) {
-      auto sub = mosaicNode->getSubmodule("ipv4")->getSubmodule("routingTable");
-      if ((routingTable = dynamic_cast<inet::Ipv4RoutingTable *>(sub))) {
-        auto *defaultRoute = new inet::Ipv4Route();
-        defaultRoute->setDestination(inet::Ipv4Address("0.0.0.0"));
-        defaultRoute->setNetmask(inet::Ipv4Address("0.0.0.0"));
-        defaultRoute->setGateway(inet::Ipv4Address("10.5.0.2"));
-        defaultRoute->setMetric(1);
-        defaultRoute->setInterface(ethIe);
-        routingTable->addRoute(defaultRoute);
-      }
-    }
-    routingTable->printRoutingTable();
-
-    EV << "Added default route via Ethernet interface for vehicle with IP: "
-       << cmd->getIp() << std::endl;
 
     EV << "Configured Ethernet interface IP: " << cmd->getIp()
        << " subnet: " << cmd->getSubnet() << std::endl;
@@ -484,9 +458,10 @@ void MosaicProxyApp::handleMessageWhenUp(omnetpp::cMessage *msg) {
       handleCellularConfiguration(cellCmd);
     } else if (auto baseCmd = dynamic_cast<MosaicConfigurationCmd *>(msg)) {
       handleConfiguration(baseCmd);
-    } else if (numRadios > 0 ||
-               cellularIe != nullptr ||
-               ethIe != nullptr) { // do nothing if there are no radios, cellular interface, or ethernet interface available
+    } else if (numRadios > 0 || cellularIe != nullptr ||
+               ethIe !=
+                   nullptr) { // do nothing if there are no radios, cellular
+                              // interface, or ethernet interface available
       sendPacket(msg);
     }
   } else if (msg->arrivedOn("socketIn")) {
