@@ -56,7 +56,7 @@ void MosaicProxyApp::initialize(int stage) {
   // registered, address auto-assignment takes place etc.
   if (stage == 3) {
     EV << "Initializing MosaicUDPApp stage " << stage << std::endl;
-    this->numInitStages();
+    // this->numInitStages();
     localPort = par("localPort");
     destPort = par("destPort");
     maxProcDelay = par("maxProcDelay");
@@ -168,30 +168,48 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   udpPacket->addTagIfAbsent<inet::L4PortReq>()->setDestPort(destPort);
 
   int channelId = packet->getChannelId();
-  if (channelId == -1 && cellularIe != nullptr) {
-    // Route cellular messages via cellular interface
-    udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
-        cellularIe->getInterfaceId());
-    EV << "Routing packet via cellular interface" << std::endl;
-  } else if (numRadios > 0 && channelId == radio0Channel) {
-    udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
-        ie0->getInterfaceId());
-  } else if (numRadios > 1 && channelId == radio1Channel) {
-    udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
-        ie1->getInterfaceId());
-  } else if (ethIe != nullptr) {
-    // Default to Ethernet interface for wired nodes when no specific routing
-    udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(
-        ethIe->getInterfaceId());
-    EV << "Defaulting to Ethernet interface for wired node" << std::endl;
-  } else {
-    EV << "Unused channel set in Packet (channelId: " << channelId << ")"
-       << std::endl;
+  // Decide egress interface for this packet.
+  // Policy:
+  //   - channelId == -1 => non-WiFi traffic (prefer cellular if present, else Ethernet)
+  //   - channelId == radio0Channel => send via wlan0 (if radio0 is enabled)
+  //   - channelId == radio1Channel => send via wlan1 (if radio1 is enabled)
+  //   - otherwise => fall back to Ethernet if available
+  const inet::NetworkInterface* outIf = nullptr;
+  const char* outIfName = nullptr;
+
+  // Non-WiFi traffic: prefer cellular when available
+  if (channelId == -1 && cellularIe) {
+    outIf = cellularIe; outIfName = "cellular";
+  }
+  // WiFi radio 0 (wlan0) selected if its channel matches and it's enabled
+  else if (ie0 && numRadios > 0 && channelId == radio0Channel) {
+    outIf = ie0; outIfName = "wlan0";
+  }
+  // WiFi radio 1 (wlan1) selected if its channel matches and it's enabled
+  else if (ie1 && numRadios > 1 && channelId == radio1Channel) {
+    outIf = ie1; outIfName = "wlan1";
+  }
+  // Fallback to Ethernet for non-WiFi or unmatched WiFi traffic
+  else if (ethIe) {
+    outIf = ethIe; outIfName = "ethernet";
+  }
+
+  // If no suitable interface was found, drop the packet with an error
+  if (!outIf) {
+    EV_ERROR << "No suitable interface for packet " << packet->getMsgId()
+             << " (channelId=" << channelId << ")" << std::endl;
+    delete udpPacket;
     return;
   }
 
-  EV << "Sending packet: " << packet->getMsgId() << " on  channel "
-     << packet->getChannelId() << " to " << destAddr << std::endl;
+  // Pin the packet to the chosen interface
+  udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(outIf->getInterfaceId());
+
+  EV << "Sending packet " << packet->getMsgId() << " via " << outIfName << " interface";
+  if (channelId != -1)
+    EV << " (channel " << channelId << ")";
+  EV << " to " << destAddr << std::endl;
+
   sendDelayed(udpPacket, delay, gate("socketOut"));
 }
 
@@ -216,9 +234,8 @@ void MosaicProxyApp::receivePacket(omnetpp::cMessage *msg) {
 
   auto udp_packet = inet::check_and_cast<inet::Packet *>(msg);
 
-// Keep the shared chunk alive while accessing the inner cPacket
-  auto chunk =
-      udp_packet->popAtBack<inet::cPacketChunk>(udp_packet->getDataLength());
+  // Keep the shared chunk alive while accessing the inner cPacket
+  auto chunk = udp_packet->popAtBack<inet::cPacketChunk>(udp_packet->getDataLength());
   if (!chunk) {
     EV_ERROR << "Received packet without cPacketChunk payload" << std::endl;
     return;
@@ -292,18 +309,16 @@ void MosaicProxyApp::handleWifiConfiguration(MosaicWifiConfigurationCmd *cmd) {
          << std::endl;
       radio0->setChannelNumber(cmd->getChannel00());
       if (cmd->getPower0() > -1) {
-        inet::mW power0 = inet::W(cmd->getPower0()); // We get the power in mW
-        radio0->setPower(power0 /
-                         1000); // thus we have to divide by 1000 to get W
+        inet::W power0 = inet::W(cmd->getPower0() / 1000.0); // Convert mW to W
+        radio0->setPower(power0);
       }
       radio0Channel = cmd->getChannel00();
       // configure the second radio
       EV << "Setting channel " << cmd->getChannel10() << " on "
          << radio1->getFullName() << " ("
-         << radio0->getTransmitter()->getInfoStringRepresentation() << ")"
+         << radio1->getTransmitter()->getInfoStringRepresentation() << ")"
          << std::endl;
       radio1->setChannelNumber(cmd->getChannel10());
-      if (cmd->getPower1() > -1) {
         inet::W power1 = inet::W(cmd->getPower1()); // We get the power in mW
         radio1->setPower(power1 /
                          1000); // thus we have to divide by 1000 to get W
@@ -326,7 +341,7 @@ void MosaicProxyApp::handleWifiConfiguration(MosaicWifiConfigurationCmd *cmd) {
     ie1->setBroadcast(true);
     return;
   }
-}
+
 
 /**
  * This method handles cellular configuration messages.
@@ -377,7 +392,7 @@ void MosaicProxyApp::handleCellularConfiguration(
 
     EV << "Configured cellular interface IP: " << cmd->getIp()
        << " subnet: " << cmd->getSubnet() << std::endl;
-    // If no cellular interface, configure Ethernet interface if available
+    // CellularConfigCommand also used for Ethernet configuration
   } else if (ethIe != nullptr) {
     if (cmd->getSubnet().isUnspecified()) {
       cmd->setSubnet(inet::Ipv4Address::makeNetmask(16));
@@ -453,15 +468,12 @@ void MosaicProxyApp::handleMessageWhenUp(omnetpp::cMessage *msg) {
     // from federate
     if (auto wifiCmd = dynamic_cast<MosaicWifiConfigurationCmd *>(msg)) {
       handleWifiConfiguration(wifiCmd);
-    } else if (auto cellCmd =
-                   dynamic_cast<MosaicCellularConfigurationCmd *>(msg)) {
+    } else if (auto cellCmd = dynamic_cast<MosaicCellularConfigurationCmd *>(msg)) {
       handleCellularConfiguration(cellCmd);
     } else if (auto baseCmd = dynamic_cast<MosaicConfigurationCmd *>(msg)) {
       handleConfiguration(baseCmd);
-    } else if (numRadios > 0 || cellularIe != nullptr ||
-               ethIe !=
-                   nullptr) { // do nothing if there are no radios, cellular
-                              // interface, or ethernet interface available
+    } else if (numRadios > 0 || cellularIe != nullptr || ethIe != nullptr) { 
+      // 
       sendPacket(msg);
     }
   } else if (msg->arrivedOn("socketIn")) {
