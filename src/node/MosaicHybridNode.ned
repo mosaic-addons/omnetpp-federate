@@ -35,8 +35,8 @@ module MosaicHybridNode {
         // WiFi configuration
         string routingProtocol @enum("", "GPSR") = default("");
         *.interfaceTableModule = default(absPath(".interfaceTable"));
-        **.routingTableModule = default(absPath(".routingTable"));
-        *.mobilityModule = default(absPath(".mobility")); //Todo: check if needed
+        **.routingTableModule = default(absPath(".networkLayer.routingTable"));
+        *.mobilityModule = default(absPath(".mobility"));
         *.radio.typename = default("Ieee80211Radio");
         **.radio.transmitter.typename = default("Ieee80211ScalarTransmitter");
         **.radio.receiver.typename = default("Ieee80211ScalarReceiver");
@@ -49,26 +49,24 @@ module MosaicHybridNode {
         // Cellular configuration
         string cellularNicType = default("NRNicUe");  // Can be "LteNicUe" or "NRNicUe"
         string nodeType = default("UE");  // UE for cellular connectivity
-        int masterId @mutable = default(0);
-        int macNodeId @mutable = default(0);
-        int macCellId @mutable = default(0);
+        int masterId @mutable;
+        int macNodeId @mutable = default(0); 
+        int macCellId @mutable = default(0); 
         
         // NR-specific parameters (used when cellularNicType = "NRNicUe")
-        // This needs to be set but will be overriden by the Binder
         int nrMasterId @mutable = default(1);
         int nrMacNodeId @mutable = default(0);
         int nrMacCellId @mutable = default(1);
         
         // RNI Support for MEC applications
-        // TODO: FIXME
+        // TODO: understand
         bool hasRNISupport = default(false);
         cellularNic.mac.collectorModule = hasRNISupport ? absPath(".ueCollector") : "";
         cellularNic.phy.hasCollector = hasRNISupport;
         cellularNic.phy.dynamicCellAssociation = true;
 
-        //# External Ethernet interfaces (has to be set but not used in this module) 
-        // TODO: Move this to omnetpp.ini ? Check this out
-        int numEthInterfaces = default(0);
+        // Node's external IP address (can be used for emulation mode in simu)
+        // Needs to be set
         string extHostAddress = default("");
     
         
@@ -102,15 +100,15 @@ module MosaicHybridNode {
                 @display("p=62,400;is=s");
         }
         
-        routingTable: Ipv4RoutingTable {
-            parameters:
-                @display("p=62,320;is=s");
-        }
+        // routingTable: Ipv4RoutingTable {
+        //     parameters:
+        //         @display("p=62,320;is=s");
+        // }
         
         // Network layer with auto-configuration
         networkLayer: Ipv4NetworkLayer {
             parameters:
-                configurator.networkConfiguratorModule = "";
+                // configurator.networkConfiguratorModule = "";
                 @display("p=320,500;q=queue");
         }
         

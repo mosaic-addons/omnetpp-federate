@@ -53,6 +53,8 @@ network Simulation {
             parameters:
                 @display("p=60,250;is=s");
                 config = xmldoc("network_config.xml");  // External XML config file
+                assignDisjunctSubnetAddresses = false;
+                assignUniqueAddresses = false;
         }
         radioMedium: Ieee80211ScalarRadioMedium {
             parameters:
