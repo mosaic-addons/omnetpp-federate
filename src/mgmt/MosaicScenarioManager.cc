@@ -43,6 +43,7 @@
 #include "common/binder/Binder.h"
 #include "common/LteCommon.h"
 #include <inet/networklayer/contract/IInterfaceTable.h>
+#include <inet/mobility/static/StationaryMobility.h>
 
 namespace omnetpp_federate
 {
@@ -105,7 +106,7 @@ namespace omnetpp_federate
         // First non-NodeB message after NodeB configuration - add all NodeBs to simulation
         if (!pendingNodeBs.empty())
         {
-          EV << "Adding " << pendingNodeBs.size() << " configured NodeBs to simulation" << std::endl;
+          EV_DEBUG << "Adding " << pendingNodeBs.size() << " configured NodeBs to simulation" << std::endl;
           auto numX2Apps = pendingNodeBs.size() - 1; // One X2App per peer NodeB
 
           for (const auto &config : pendingNodeBs)
@@ -213,13 +214,13 @@ namespace omnetpp_federate
     }
     else if (msgName == "MosaicWifiConfigurationCmd")
     {
-      auto *cmd = check_and_cast<MosaicWifiConfigurationCmd *>(msg);
+      check_and_cast<MosaicWifiConfigurationCmd *>(msg);
       EV_DEBUG << "MosaicScenarioManager WIFI_CONF_RADIO" << std::endl;
       configureRadio(msg);
     }
     else if (msgName == "MosaicCellularConfigurationCmd")
     {
-      auto *cmd = check_and_cast<MosaicCellularConfigurationCmd *>(msg);
+      check_and_cast<MosaicCellularConfigurationCmd *>(msg);
       EV_DEBUG << "MosaicScenarioManager CELLULAR_CONF_RADIO" << std::endl;
       configureRadio(msg);
     }
@@ -316,10 +317,6 @@ namespace omnetpp_federate
        << "\" at index " << nodeVectorIndex << " in parent module \""
        << parentmod->getFullName() << "\"" << std::endl;
     auto *mod = nodeType->create(name.c_str(), parentmod, nodeVectorIndex);
-
-    // For gNodeB modules, we need to create a custom instance that uses
-    // MosaicMobility Since the gNodeB hardcodes StationaryMobility, we'll handle
-    // this in addNodeB method
 
     mod->getDisplayString().parse(displayString.c_str());
 
@@ -463,41 +460,13 @@ namespace omnetpp_federate
       newNode->getDisplayString().parse(displayStr.c_str());
     }
 
-    // Replace the hardcoded StationaryMobility with MosaicMobility
-    auto *oldMobility = newNode->getSubmodule("mobility");
-    if (oldMobility)
-    {
-      // Delete the existing StationaryMobility module
-      oldMobility->deleteModule();
-
-      // Create a new MosaicMobility module
-      auto *mobilityType =
-          cModuleType::get("omnetpp_federate.node.MosaicMobility");
-      if (mobilityType)
-      {
-        auto *newMobility = mobilityType->create("mobility", newNode);
-        newMobility->finalizeParameters();
-        newMobility->buildInside();
-
-        // Set position and ID after building (parameters are now accessible)
-        auto *mobility = dynamic_cast<MosaicMobility *>(newMobility);
-        if (mobility)
-        {
-          mobility->setExternalId(nodeId);
-          mobility->setNextPosition(position); // This sets the position properly
-
-          EV_DEBUG << "MosaicMobility created for nodeB " << nodeId << " at position "
-             << position.x << "," << position.y << std::endl;
-        }
-      }
-    }
     // Now establish PPP connection to UPF for cellular traffic routing
     cModule *upf = getParentModule()->getSubmodule("upf");
     if (upf && newNode)
     {
       // Get the next available index for UPF pppg gates
       int upfPppIndex = upf->gateSize("pppg$o");
-      EV << "Connecting gNodeB " << nodeId << " to UPF at pppg index "
+      EV_DEBUG << "Connecting gNodeB " << nodeId << " to UPF at pppg index "
          << upfPppIndex << std::endl;
 
       // Expand UPF gate vector to accommodate new connection
@@ -523,10 +492,10 @@ namespace omnetpp_federate
         EV_DEBUG << "Connected gNodeB " << nodeId << " to UPF via pppg[" << upfPppIndex
            << "] with Eth10G channels for 5G core network routing" << std::endl;
 
-        // Don't use rebuildInside() - create the PPP interface manually
+        // create the PPP interface manually
         cModuleType *pppType = cModuleType::get("inet.linklayer.ppp.PppInterface");
         int pppIfaceIndex = upf->getSubmoduleVectorSize("ppp");
-        EV << "Creating PPP interface ppp[" << pppIfaceIndex << "] in UPF"
+        EV_DEBUG << "Creating PPP interface ppp[" << pppIfaceIndex << "] in UPF"
            << std::endl;
         // Set the vector size for the ppp[] submodule vector
         upf->setSubmoduleVectorSize("ppp", pppIfaceIndex + 1);
@@ -741,11 +710,6 @@ namespace omnetpp_federate
     auto *submod = newNode->getSubmodule("proxyApp");
     if ((app = dynamic_cast<MosaicProxyApp *>(submod)))
     {
-      EV << "MosaicScenarioManager adding wired node " << nodeId
-         << " with proxyApp" << std::endl;
-      EV << "Current gate size: mosaicProxyOut="
-         << this->gateSize("mosaicProxyOut") << ", mosaicProxyIn="
-         << this->gateSize("mosaicProxyIn") << std::endl;
       // Ensure gate vector is large enough for nodeId
       if (this->gateSize("mosaicProxyOut") <= nodeId)
       {
@@ -807,7 +771,7 @@ namespace omnetpp_federate
         if (ethType)
         {
           int ethIfaceIndex = ethernetSwitch->getSubmoduleVectorSize("eth");
-          EV << "Creating Ethernet interface eth[" << ethIfaceIndex << "] on switch" << std::endl;
+          EV_DEBUG << "Creating Ethernet interface eth[" << ethIfaceIndex << "] on switch" << std::endl;
 
           // Set the vector size for the eth[] submodule vector
           ethernetSwitch->setSubmoduleVectorSize("eth", ethIfaceIndex + 1);
@@ -846,7 +810,7 @@ namespace omnetpp_federate
           newEthIf->scheduleStart(simTime());
           newEthIf->callInitialize();
 
-          EV << "Ethernet interface created on switch for wired node " << nodeId << std::endl;
+          EV_DEBUG << "Ethernet interface created on switch for wired node " << nodeId << std::endl;
         }
         else
         {
@@ -868,7 +832,7 @@ namespace omnetpp_federate
 
   void MosaicScenarioManager::configureX2Connections()
   {
-    EV << "Configuring X2 connections between " << pendingNodeBs.size() << " NodeBs" << std::endl;
+    EV_DEBUG << "Configuring X2 connections between " << pendingNodeBs.size() << " NodeBs" << std::endl;
 
     if (pendingNodeBs.size() < 2)
     {
@@ -1001,7 +965,7 @@ namespace omnetpp_federate
         nodeB1X2Out->connectTo(nodeB2X2In, channel1);
         nodeB2X2Out->connectTo(nodeB1X2In, channel2);
 
-        EV << "X2 connection established: NodeB " << nodeB1Id << ".x2[" << nodeB1X2Count
+        EV_DEBUG << "X2 connection established: NodeB " << nodeB1Id << ".x2[" << nodeB1X2Count
            << "] <--> NodeB " << nodeB2Id << ".x2[" << nodeB2X2Count << "]" << std::endl;
 
       }
@@ -1019,14 +983,13 @@ namespace omnetpp_federate
 
   void MosaicScenarioManager::addAllNodeBsToSimulation()
   {
-    EV << "Adding all " << pendingNodeBs.size() << " configured NodeBs to simulation simultaneously" << std::endl;
+    EV_DEBUG << "Adding all " << pendingNodeBs.size() << " configured NodeBs to simulation simultaneously" << std::endl;
 
     // Add all configured NodeBs to the simulation
     for (const auto &config : pendingNodeBs)
     {
       EV_DEBUG << "Adding NodeB " << config.nodeId << " at position "
          << config.position.x << "," << config.position.y << " to simulation" << std::endl;
-      // addNodeBToSimulation(config.nodeId, const_cast<inet::Coord&>(config.position));
       cModule *newNode = getManagedModule(config.nodeId);
       if (!newNode)
       {
@@ -1037,7 +1000,6 @@ namespace omnetpp_federate
 
     int numInitStages = inet::NUM_INIT_STAGES;
     // Initialize all NodeBs after they are added
-    bool reconfigured = false;
     for (int stage = 0; stage < inet::INITSTAGE_NETWORK_LAYER; ++stage)
     {
       for (const auto &config : pendingNodeBs)
@@ -1059,7 +1021,6 @@ namespace omnetpp_federate
     cModule *newConfigurator = configuratorType->create("configurator", parentmod);
 
     // Set parameters (copy from original configuration)
-    // newConfigurator->par("config") = "xmldoc(\"network_config.xml\")";
     newConfigurator->finalizeParameters();
     newConfigurator->buildInside();
     newConfigurator->callInitialize();
@@ -1096,60 +1057,9 @@ namespace omnetpp_federate
     // Clear the pending list as all NodeBs have been added
     pendingNodeBs.clear();
 
-    EV << "All NodeBs successfully added to simulation with X2Apps configured" << std::endl;
+    EV_DEBUG << "All NodeBs successfully added to simulation with X2Apps configured" << std::endl;
   }
 
-  void MosaicScenarioManager::addNodeBToSimulation(int nodeId, inet::Coord &position)
-  {
-    cModule *newNode = getManagedModule(nodeId);
-    if (!newNode)
-    {
-      error("NodeB %d not found for simulation initialization", nodeId);
-    }
-    // newNode->par("numX2Apps") = 1;
-    newNode->buildInside();
-
-    // Get the interface and routing table
-    auto *ift = check_and_cast<inet::IInterfaceTable *>(
-        newNode->getSubmodule("interfaceTable"));
-    auto *rt = check_and_cast<inet::Ipv4RoutingTable *>(
-        newNode->getSubmodule("ipv4")->getSubmodule("routingTable"));
-
-    // Get the global IP configurator
-    // auto *ipconfig = check_and_cast<inet::Ipv4NetworkConfigurator *>(
-    //     getParentModule()->getSubmodule("configurator"));
-    // if (ipconfig)
-    // {
-    //   EV << "Starting IP configuration for gNodeB " << nodeId << std::endl;
-    //   if (ift && rt)
-    //   {
-    //     EV << "Found interface table with " << ift->getNumInterfaces() << " interfaces and routing table" << std::endl;
-    //     for (int i = 0; i < ift->getNumInterfaces(); i++)
-    //     {
-    //       auto *iface = ift->getInterface(i);
-    //       EV << "Configuring interface " << i << ": " << iface->getInterfaceName() << std::endl;
-    //       ipconfig->configureInterface(iface);
-    //       EV << "Interface " << i << " configured successfully" << std::endl;
-    //       // Print assigned IP address
-    //       EV << "Interface details: " << iface << std::endl;
-    //     }
-    //     EV << "Configuring routing table for gNodeB " << nodeId << std::endl;
-    //     ipconfig->configureRoutingTable(rt);
-    //     EV << "Routing table configured successfully for gNodeB " << nodeId << std::endl;
-    //     EV << "Routing table : " << rt << std::endl;
-    //   }
-    //   else
-    //   {
-    //     EV_ERROR << "Failed to get interface table or routing table for gNodeB " << nodeId << std::endl;
-    //   }
-    // }
-    // else
-    // {
-    //   EV_ERROR << "IP configurator not found for gNodeB " << nodeId << std::endl;
-    // }
-
-    // EV << "NodeB " << nodeId << " successfully added to simulation" << std::endl;
-  }
 
   int MosaicScenarioManager::getX2AppIndexForPeer(int peerNodeId, int sourceNodeId)
   {

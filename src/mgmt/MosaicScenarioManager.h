@@ -85,7 +85,6 @@ private:
   // NodeB batch configuration methods
   virtual void configureX2Connections();
   virtual void addAllNodeBsToSimulation();
-  virtual void addNodeBToSimulation(int nodeId, inet::Coord &position);
   virtual void createX2Connection(int nodeB1Id, int nodeB2Id);
   
   // X2App configuration methods
