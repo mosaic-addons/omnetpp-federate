@@ -27,9 +27,6 @@
 #include "inet/common/Ptr.h"
 #include "inet/common/geometry/common/Coord.h"
 #include "inet/common/packet/chunk/ByteCountChunk.h"
-#include "inet/networklayer/common/L3AddressResolver.h"
-#include "inet/networklayer/ipv4/Ipv4InterfaceData.h"
-#include "inet/networklayer/ipv4/Ipv4RoutingTable.h"
 #include "inet/networklayer/configurator/ipv4/Ipv4NetworkConfigurator.h"
 
 #include "msg/MosaicAppPacket_m.h"
@@ -39,11 +36,8 @@
 #include "node/MosaicMobility.h"
 #include "node/MosaicProxyApp.h"
 
-// Simu5G includes for debugging binder registration
 #include "common/binder/Binder.h"
 #include "common/LteCommon.h"
-#include <inet/networklayer/contract/IInterfaceTable.h>
-#include <inet/mobility/static/StationaryMobility.h>
 
 namespace omnetpp_federate
 {
@@ -911,7 +905,6 @@ namespace omnetpp_federate
           if (client)
           {
             // Set connectAddress to peer nodeB's x2ppp interface
-            // Format: "gnb[peerid]$x2ppp$index"
             int peerIndex = nodeBIdToIndex[peerNodeId];
             int peerX2AppIndex = getX2AppIndexForPeer(peerNodeId, pendingNodeBs[i].nodeId);
             std::string connectAddr = "gnb[" + std::to_string(peerIndex) + "]%x2ppp" + std::to_string(peerX2AppIndex);

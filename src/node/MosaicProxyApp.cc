@@ -105,7 +105,7 @@ void MosaicProxyApp::initialize(int stage) {
 
     if (hasWirelessInterfaces) {
       // Initialize wireless radios if available
-      if ((radio0 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
+      if (ie0 != nullptr && (radio0 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
                ie0->getSubmodule("radio"))) == 0) {
         setOperationalState(NOT_OPERATING);
         return;
