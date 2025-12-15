@@ -110,7 +110,7 @@ void MosaicProxyApp::initialize(int stage) {
         setOperationalState(NOT_OPERATING);
         return;
       }
-      if ((radio1 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
+      if (ie1 != nullptr && (radio1 = dynamic_cast<inet::physicallayer::Ieee80211Radio *>(
                ie1->getSubmodule("radio"))) == 0) {
         setOperationalState(NOT_OPERATING);
         return;
@@ -205,10 +205,10 @@ void MosaicProxyApp::sendDelayedToUDP(omnetpp::cPacket *msg, int srcPort,
   // Pin the packet to the chosen interface
   udpPacket->addTagIfAbsent<inet::InterfaceReq>()->setInterfaceId(outIf->getInterfaceId());
 
-  EV << "Sending packet " << packet->getMsgId() << " via " << outIfName << " interface";
+  EV_DEBUG << "Sending packet " << packet->getMsgId() << " via " << outIfName << " interface";
   if (channelId != -1)
-    EV << " (channel " << channelId << ")";
-  EV << " to " << destAddr << std::endl;
+    EV_DEBUG << " (channel " << channelId << ")";
+  EV_DEBUG << " to " << destAddr << std::endl;
 
   sendDelayed(udpPacket, delay, gate("socketOut"));
 }
@@ -401,6 +401,12 @@ void MosaicProxyApp::handleCellularConfiguration(
         cmd->getIp());
     ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setNetmask(
         cmd->getSubnet());
+    ethIe->setBroadcast(true);
+    // ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->setBroadcast(true);
+    ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->joinMulticastGroup(inet::Ipv4Address::ALL_HOSTS_MCAST);
+    ethIe->getProtocolDataForUpdate<inet::Ipv4InterfaceData>()->joinMulticastGroup(inet::Ipv4Address::ALL_ROUTERS_MCAST);
+    
+    
 
     EV << "Configured Ethernet interface IP: " << cmd->getIp()
        << " subnet: " << cmd->getSubnet() << std::endl;

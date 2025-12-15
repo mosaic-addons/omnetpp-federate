@@ -69,7 +69,7 @@ namespace omnetpp_federate
     }
     sched->setMgmtModule(this);
 
-    EV_INFO << "MosaicScenarioManager initialized: vehModuleType: " << std::endl;
+    EV_INFO << "MosaicScenarioManager initialized: vehModuleType: " << vehModuleType << std::endl;
   }
 
   /**
@@ -94,7 +94,7 @@ namespace omnetpp_federate
       auto cmd = check_and_cast<MosaicMobilityCmd *>(msg);
       EV << "MosaicScenarioManager received command: " << cmd->getCmdType()
          << std::endl;
-      if ((cmd->getCmdType() != MOBILITY_CMD_ADD_NODE_B && cmd->getCmdType() != MOBILITY_CMD_ADD_WIRED_NODE) &&
+      if ((cmd->getCmdType() != MOBILITY_CMD_ADD_NODE_B) &&
           !nodeBRegistrationDone)
       {
         // First non-NodeB message after NodeB configuration - add all NodeBs to simulation
@@ -817,6 +817,28 @@ namespace omnetpp_federate
       }
       newNode->scheduleStart(simTime());
       newNode->callInitialize();
+      auto *parentmod = getParentModule();
+      auto *ipconfig = parentmod->getSubmodule("configurator");
+      if (ipconfig)
+      {
+        ipconfig->deleteModule();
+      }
+      cModuleType *configuratorType = cModuleType::get("inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator");
+      cModule *newConfigurator = configuratorType->create("configurator", parentmod);
+
+      // Set parameters (copy from original configuration)
+      newConfigurator->finalizeParameters();
+      newConfigurator->buildInside();
+      newConfigurator->callInitialize();
+
+      cModule *configurator = getParentModule()->getSubmodule("configurator");
+      if (configurator)
+      {
+        auto *configNode = dynamic_cast<inet::Ipv4NetworkConfigurator *>(configurator);
+        configNode->configureAllInterfaces();
+        configNode->configureAllRoutingTables();
+      }
+
     }
 
     EV_DEBUG << "MosaicScenarioManager added wired node " << nodeId << " at position "
@@ -840,13 +862,6 @@ namespace omnetpp_federate
       {
         int nodeB1 = pendingNodeBs[i].nodeId;
         int nodeB2 = pendingNodeBs[j].nodeId;
-
-        // Calculate distance between NodeBs
-        double distance = sqrt(pow(pendingNodeBs[i].position.x - pendingNodeBs[j].position.x, 2) +
-                               pow(pendingNodeBs[i].position.y - pendingNodeBs[j].position.y, 2));
-
-        EV_DEBUG << "Creating X2 connection between NodeB " << nodeB1
-                 << " and NodeB " << nodeB2 << " (distance: " << distance << "m)" << std::endl;
 
         createX2Connection(nodeB1, nodeB2);
       }

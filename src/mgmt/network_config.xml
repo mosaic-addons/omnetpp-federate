@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-
-
-    <!-- 5G cellular network -->
+    <!-- 5G core network -->
     <interface hosts="gnb[*]" names="cellular" address="10.0.x.x" netmask="255.0.0.0" />
     <!-- Server network (10.5.x.x) - wired nodes connect to router -->
     <interface hosts="wired[*]" names="eth*" address="10.5.x.x" netmask="255.255.0.0" />
+    <interface hosts="serverGateway" names="eth*" address="10.5.1.x" netmask="255.255.0.0" />
     <!-- Default -->
     <interface hosts="*" address="192.168.x.x" netmask="255.255.0.0" />
     <!-- Routing -->
     <!-- Wired nodes: local subnet directly, everything else through serverGateway -->
     <route hosts="wired[*]" destination="*" gateway="serverGateway" />
     <!-- serverGateway: all 10.x.x.x (except 10.5.x.x which is local) goes to UPF -->
-    <route hosts="serverGateway" destination="10.0.0.0" netmask="255.0.0.0" gateway="upf" />
+    <route hosts="serverGateway" destination="10.1.0.0" netmask="255.255.0.0" gateway="upf" />
+    <route hosts="serverGateway" destination="10.2.0.0" netmask="255.255.0.0" gateway="upf" />
+    <route hosts="serverGateway" destination="10.3.0.0" netmask="255.255.0.0" gateway="upf" />
+    <route hosts="serverGateway" destination="10.4.0.0" netmask="255.255.0.0" gateway="upf" />
+    <route hosts="serverGateway" destination="10.6.0.0" netmask="255.255.0.0" gateway="upf" />
     <!-- UPF: reach wired network via serverGateway -->
     <route hosts="upf" destination="10.5.0.0" netmask="255.255.0.0" gateway="serverGateway" />
     <!-- gNodeBs: reach wired network via UPF -->
     <route hosts="gnb[*]" destination="10.5.0.0" netmask="255.255.0.0" gateway="upf" />
-
 </config>
