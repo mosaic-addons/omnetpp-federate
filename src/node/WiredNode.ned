@@ -43,7 +43,7 @@ module WiredNode {
         @display("i=device/server");
         *.routingTableModule = "^.routingTable";
         *.interfaceTableModule = "^.interfaceTable";
-        *.numEthInterfaces = default(1);
+        **.numEthInterfaces = default(1);
         udp.icmpModule = absPath(".icmp");
         ipv4.arp.proxyArpInterfaces = default("");
     gates:
