@@ -61,8 +61,8 @@ project "omnetpp-federate-LIBRARY"
         , "src/msg/MosaicConfigurationCmd_m.cc"
         , "src/msg/MosaicMobilityCmd_m.h"
         , "src/msg/MosaicMobilityCmd_m.cc"
-        , "src/mgmt/*.h" 
-        , "src/mgmt/*.cc" 
+        , "src/mgmt/*.h"
+        , "src/mgmt/*.cc"
         , PROTO_CC_PATH .. "/ClientServerChannel.h"
         , PROTO_CC_PATH .. "/ClientServerChannel.cc"
         , "src/util/Log.h"
@@ -93,20 +93,20 @@ project "omnetpp-federate-LIBRARY"
      defines { "NDEBUG" }
      optimize "On"
 
-  configuration "generate-opp-messages"
+  filter "options:generate-opp-messages"
      prebuildcommands { OPP_MSGC_BIN .. " --msg6 -I /usr/lib" .. " src/msg/MosaicCommunicationCmd.msg"
                       , OPP_MSGC_BIN .. " --msg6 -I /usr/lib" .. " src/msg/MosaicConfigurationCmd.msg"
                       , OPP_MSGC_BIN .. " --msg6 -I /usr/lib" .. " src/msg/MosaicMobilityCmd.msg"
                       , OPP_MSGC_BIN .. " --msg6 -I /usr/lib" .. " src/msg/MosaicAppPacket.msg"
                       }
 
-  configuration "generate-protobuf"
+  filter "options:generate-protobuf"
      prebuildcommands { PROTOC_BIN .. " --cpp_out=" .. PROTO_CC_PATH
                         .. " --proto_path=" .. PROTO_PATH
                         .." ClientServerChannelMessages.proto"
                       }
 
-  configuration "install"
+  filter "options:install"
      postbuildcommands { MKDIR_BIN .. " -p " .. install_prefix .. "/lib"
                        , INSTALL_BIN .. " bin/%{cfg.buildcfg}/libomnetpp-federate.so " .. install_prefix .. "/lib" --strip
                        , MKDIR_BIN .. " -p " .. install_prefix .. "/share/ned/omnetpp_federate"
@@ -121,10 +121,10 @@ project "omnetpp-federate-LIBRARY"
                        , "cp ./src/node/MosaicMobility.ned " .. install_prefix .. "/share/ned/omnetpp_federate/node"
                        }
 
-  configuration "Debug"
+  filter "configurations:Debug"
      libdirs { "bin/Debug" }
 
-  configuration "Release"
+  filter "configurations:Release"
      libdirs { "bin/Release" }
 
 -- -------------------------------
@@ -160,6 +160,7 @@ project "omnetpp-federate-BINARY"
              , "dl"
     --       , "oppcommon_dbg"
              , "oppcmdenv_dbg"
+             , "simu5g_dbg"
              }
       symbols "On"
 
@@ -176,18 +177,19 @@ project "omnetpp-federate-BINARY"
              , "dl"
     --       , "oppcommon"
              , "oppcmdenv"
+             , "simu5g"
              }
       optimize "On"
 
-  configuration "install"
+  filter "options:install"
      postbuildcommands { MKDIR_BIN .. " -p " .. install_prefix .. "/bin"
                        , INSTALL_BIN .. " bin/%{cfg.buildcfg}/omnetpp-federate " .. install_prefix .. "/bin" --strip
                        }
 
-   configuration "Debug"
+   filter "configurations:Debug"
       libdirs { "bin/Debug", "/usr/lib" }
 
-   configuration "Release"
+   filter "configurations:Release"
       libdirs { "bin/Release", "/usr/lib" }
 
 if _ACTION == "clean" then
