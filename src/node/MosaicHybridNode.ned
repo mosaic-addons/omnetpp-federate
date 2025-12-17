@@ -49,7 +49,7 @@ module MosaicHybridNode {
         // Cellular configuration
         string cellularNicType = default("NRNicUe");  // Can be "LteNicUe" or "NRNicUe"
         string nodeType = default("UE");  // UE for cellular connectivity
-        int masterId @mutable;
+        int masterId @mutable = default(0);
         int macNodeId @mutable = default(0); 
         int macCellId @mutable = default(0); 
         
